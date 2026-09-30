@@ -1,26 +1,15 @@
-import { useAccount, useConnect, useDisconnect } from 'wagmi'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import ConnectPage from './routes/ConnectPage'
+import Dashboard from './routes/Dashboard'
 
 function App() {
-  const { address, chain, isConnected } = useAccount()
-  const { connect, connectors, isPending } = useConnect()
-  const { disconnect } = useDisconnect()
-
-  if (!isConnected) {
-    return (
-      <button type="button" onClick={() => connect({ connector: connectors[0] })} disabled={isPending}>
-        {isPending ? 'Connecting...' : 'Connect wallet'}
-      </button>
-    )
-  }
-
   return (
-    <div>
-      <p>Connected: {address}</p>
-      <p>Network: {chain?.name ?? 'unknown'}</p>
-      <button type="button" onClick={() => disconnect()}>
-        Disconnect
-      </button>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<ConnectPage />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
