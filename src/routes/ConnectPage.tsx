@@ -1,9 +1,10 @@
 import { Navigate } from 'react-router-dom'
-import { useAccount, useConnect } from 'wagmi'
+import { useConnect, useConnection, useConnectors } from 'wagmi'
 
 function ConnectPage() {
-  const { isConnected } = useAccount()
-  const { connect, connectors, isPending } = useConnect()
+  const { isConnected } = useConnection()
+  const { mutate: connect, isPending } = useConnect()
+  const connectors = useConnectors()
 
   if (isConnected) {
     return <Navigate to="/dashboard" replace />

@@ -1,10 +1,11 @@
 import { Navigate } from 'react-router-dom'
-import { useAccount, useDisconnect } from 'wagmi'
+import { useConnection, useDisconnect } from 'wagmi'
 import { useMyRoles } from '../hooks/useMyRoles'
+import Tile from '../components/Tile'
 
 function Dashboard() {
-  const { address, chain, isConnected } = useAccount()
-  const { disconnect } = useDisconnect()
+  const { address, chain, isConnected } = useConnection()
+  const { mutate: disconnect } = useDisconnect()
   const roles = useMyRoles()
 
   if (!isConnected) {
@@ -29,6 +30,18 @@ function Dashboard() {
           <li>Retailer: {roles.retailer ? 'yes' : 'no'}</li>
           <li>Logistics: {roles.logistics ? 'yes' : 'no'}</li>
         </ul>
+      )}
+
+      {roles.beekeeper && (
+        <div>
+          <h2>Aktionen</h2>
+          <Tile to="/apiaries" label="Bienenstände" />
+          <Tile to="/harvest" label="Ernte eintragen" />
+          <Tile to="/batches/new" label="Gebinde anlegen" />
+          <button type="button" onClick={() => alert('Noch nicht umgesetzt')}>
+            Zertifikat beantragen
+          </button>
+        </div>
       )}
     </div>
   )
