@@ -4,6 +4,7 @@ import { useReadSupplyChainNextBatchId, useWriteSupplyChainRegisterHarvestBatch 
 import { addresses } from '../addresses'
 import { useApiaries } from '../hooks/useApiaries'
 import { useHarvest } from '../hooks/useHarvest'
+import { Link } from 'react-router-dom'
 
 type Row = { apiaryId: number; kg: string }
 
@@ -69,7 +70,12 @@ function NewBatch() {
   }
 
   if (receipt.isSuccess) {
-    return <p>Charge #{nextBatchId?.toString()} wurde angelegt.</p>
+    return (
+      <p>
+        Charge #{nextBatchId?.toString()} wurde angelegt.{' '}
+        <Link to={`/batches/${nextBatchId}`}>Ansehen</Link>
+      </p>
+    )
   }
 
   return (

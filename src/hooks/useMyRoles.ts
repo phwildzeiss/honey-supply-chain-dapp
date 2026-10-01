@@ -4,8 +4,9 @@ import { addresses } from '../addresses'
 
 const ROLE_FUNCTION_NAMES = ['BEEKEEPER_ROLE', 'BOTTLER_ROLE', 'RETAILER_ROLE', 'LOGISTICS_ROLE'] as const
 
-export function useMyRoles() {
-    const { address } = useConnection()
+export function useMyRoles(targetAddress?: string) {
+    const { address: connectedAddress } = useConnection()
+    const address = targetAddress ?? connectedAddress
     const chainId = useChainId()
     const actorRegistry = addresses[chainId as keyof typeof addresses]?.ActorRegistry
 

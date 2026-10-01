@@ -4,6 +4,7 @@ import Dashboard from './routes/Dashboard'
 import Apiaries from './routes/Apiaries'
 import Harvest from './routes/Harvest'
 import NewBatch from './routes/NewBatch'
+import BatchDetail from './routes/BatchDetail'
 
 function App() {
   return (
@@ -14,7 +15,7 @@ function App() {
         <Route path="/apiaries" element={<Apiaries />} />
         <Route path="/harvest" element={<Harvest />} />
         <Route path="/batches/new" element={<NewBatch />} />
-
+        <Route path="/batches/:batchId" element={<BatchDetail />} />
       </Routes>
     </BrowserRouter>
   )
