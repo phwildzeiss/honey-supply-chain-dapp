@@ -15,6 +15,9 @@ dist-ssr
 # docs
 /docs
 
+# wagmi generate leftover
+wagmi.config.bundled_*.mjs
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

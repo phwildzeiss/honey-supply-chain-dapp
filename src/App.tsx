@@ -6,6 +6,7 @@ import Apiaries from './routes/Apiaries'
 import Harvest from './routes/Harvest'
 import NewBatch from './routes/NewBatch'
 import BatchDetail from './routes/BatchDetail'
+import SubmitOrigin from './routes/SubmitOrigin'
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route path="/harvest" element={<Harvest />} />
           <Route path="/batches/new" element={<NewBatch />} />
           <Route path="/batches/:batchId" element={<BatchDetail />} />
+          <Route path="/batches/:batchId/origin" element={<SubmitOrigin />} />
         </Route>
       </Routes>
     </BrowserRouter>

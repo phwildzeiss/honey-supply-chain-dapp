@@ -1,11 +1,12 @@
-import { useParams } from 'react-router-dom'
-import { useChainId } from 'wagmi'
+import { useParams, Link } from 'react-router-dom'
+import { useChainId, useConnection } from 'wagmi'
 import {
   useReadConsumerGatewayGetBatchData,
   useReadConsumerGatewayGetPrice,
   useReadConsumerGatewayGetQualityData,
   useReadQualityIndexPhqiReportCid,
   useReadQualityIndexAwardCertificateCid,
+  useReadQualityIndexOriginCid,
   useReadActorRegistryCertifications,
 } from '../generated'
 import { addresses } from '../addresses'
@@ -18,6 +19,7 @@ const IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs/'
 function BatchDetail() {
   const { batchId } = useParams()
   const chainId = useChainId()
+  const { address } = useConnection()
   const consumerGateway = addresses[chainId as keyof typeof addresses]?.ConsumerGateway
   const qualityIndex = addresses[chainId as keyof typeof addresses]?.QualityIndex
   const actorRegistry = addresses[chainId as keyof typeof addresses]?.ActorRegistry
@@ -68,6 +70,9 @@ function BatchDetail() {
             ? `${(Number(priceQuery.data) / 100).toFixed(2)} €`
             : '...'}
       </p>
+      {address?.toLowerCase() === batch.beekeeper.toLowerCase() && (
+        <p><Link to={`/batches/${batchId}/origin`}>Herkunft eintragen</Link></p>
+      )}
       <BatchDocuments
         batchId={id}
         beekeeper={batch.beekeeper}
@@ -105,9 +110,24 @@ function BatchDocuments({
     query: { enabled: Boolean(actorRegistry) },
   })
   const [beekeeperCertCid] = certificationData ?? ['']
+  const { data: originCid } = useReadQualityIndexOriginCid({
+    address: qualityIndex,
+    args: batchId !== undefined ? [batchId] : undefined,
+    query: { enabled: Boolean(qualityIndex && batchId !== undefined) },
+  })
 
   return (
     <>
+      <p>
+        Herkunftsangabe:{' '}
+        {originCid ? (
+          <a href={IPFS_GATEWAY + originCid} target="_blank" rel="noreferrer">
+            ansehen
+          </a>
+        ) : (
+          'noch nicht eingetragen'
+        )}
+      </p>
       <p>
         Laboranalyse:{' '}
         {labReportCid ? (
