@@ -11,6 +11,27 @@ export async function fetchRegionScore(region: string): Promise<number> {
   return data.region
 }
 
+export type SiScores = {
+  forage: number
+  lightIntensity: number
+  waterSource: number
+  summerTemperature: number
+  winterTemperature: number
+  windSpeed: number
+  humidity: number
+  precipitation: number
+}
+
+export async function fetchSiScores(sensorStation: string, waterSourceDistanceMeters: number): Promise<SiScores> {
+  const response = await fetch(`${SIMULATOR_URL}/api/si`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sensorStation, waterSourceDistanceMeters }),
+  })
+  if (!response.ok) throw new Error('Simulator-Anfrage für die SI-Werte fehlgeschlagen.')
+  return response.json()
+}
+
 export async function uploadOrigin(regions: string[]): Promise<string> {
   const response = await fetch(`${SIMULATOR_URL}/api/origin`, {
     method: 'POST',

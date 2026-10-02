@@ -71,7 +71,10 @@ function BatchDetail() {
             : '...'}
       </p>
       {address?.toLowerCase() === batch.beekeeper.toLowerCase() && (
-        <p><Link to={`/batches/${batchId}/origin`}>Herkunft eintragen</Link></p>
+        <p>
+          <Link to={`/batches/${batchId}/si`}>SI einreichen</Link>{' '}
+          <Link to={`/batches/${batchId}/origin`}>Herkunft eintragen</Link>
+        </p>
       )}
       <BatchDocuments
         batchId={id}
