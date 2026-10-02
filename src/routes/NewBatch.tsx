@@ -4,6 +4,7 @@ import { useReadSupplyChainNextBatchId, useWriteSupplyChainRegisterHarvestBatch 
 import { addresses } from '../addresses'
 import { useApiaries } from '../hooks/useApiaries'
 import { useHarvest } from '../hooks/useHarvest'
+import { useBatchComposition } from '../hooks/useBatchComposition'
 import { Link } from 'react-router-dom'
 
 type Row = { apiaryId: number; kg: string }
@@ -19,6 +20,7 @@ function NewBatch() {
   const supplyChain = addresses[chainId as keyof typeof addresses]?.SupplyChain
   const { apiaries } = useApiaries()
   const { remaining, consumeFromPool } = useHarvest()
+  const { saveComposition } = useBatchComposition()
 
   const [year, setYear] = useState(new Date().getFullYear())
   const [rows, setRows] = useState<Row[]>([{ apiaryId: apiaries[0]?.id ?? 0, kg: '' }])
@@ -29,8 +31,9 @@ function NewBatch() {
   const receipt = useWaitForTransactionReceipt({ hash: registerBatch.data })
 
   useEffect(() => {
-    if (receipt.isSuccess && !consumed) {
+    if (receipt.isSuccess && !consumed && nextBatchId !== undefined) {
       consumeFromPool(rows.map((row) => ({ apiaryId: row.apiaryId, year, grams: toGrams(row.kg) })))
+      saveComposition(Number(nextBatchId), rows.map((row) => ({ apiaryId: row.apiaryId, grams: toGrams(row.kg) })))
       setConsumed(true)
     }
   }, [receipt.isSuccess])

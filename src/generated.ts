@@ -1034,6 +1034,13 @@ export const qualityIndexAbi = [
   {
     type: 'function',
     inputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    name: 'originCid',
+    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     name: 'phqiReportCid',
     outputs: [{ name: '', internalType: 'string', type: 'string' }],
     stateMutability: 'view',
@@ -1075,6 +1082,16 @@ export const qualityIndexAbi = [
       { name: 'region', internalType: 'uint16', type: 'uint16' },
     ],
     name: 'submitMCIOriginData',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'batchId', internalType: 'uint256', type: 'uint256' },
+      { name: 'ipfsCid', internalType: 'string', type: 'string' },
+    ],
+    name: 'submitOrigin',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -2351,6 +2368,13 @@ export const useReadQualityIndexMciData = /*#__PURE__*/ createUseReadContract({
 })
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link qualityIndexAbi}__ and `functionName` set to `"originCid"`
+ */
+export const useReadQualityIndexOriginCid = /*#__PURE__*/ createUseReadContract(
+  { abi: qualityIndexAbi, functionName: 'originCid' },
+)
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link qualityIndexAbi}__ and `functionName` set to `"phqiReportCid"`
  */
 export const useReadQualityIndexPhqiReportCid =
@@ -2412,6 +2436,15 @@ export const useWriteQualityIndexSubmitMciOriginData =
   })
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link qualityIndexAbi}__ and `functionName` set to `"submitOrigin"`
+ */
+export const useWriteQualityIndexSubmitOrigin =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: qualityIndexAbi,
+    functionName: 'submitOrigin',
+  })
+
+/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link qualityIndexAbi}__ and `functionName` set to `"submitPHQIData"`
  */
 export const useWriteQualityIndexSubmitPhqiData =
@@ -2470,6 +2503,15 @@ export const useSimulateQualityIndexSubmitMciOriginData =
   /*#__PURE__*/ createUseSimulateContract({
     abi: qualityIndexAbi,
     functionName: 'submitMCIOriginData',
+  })
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link qualityIndexAbi}__ and `functionName` set to `"submitOrigin"`
+ */
+export const useSimulateQualityIndexSubmitOrigin =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: qualityIndexAbi,
+    functionName: 'submitOrigin',
   })
 
 /**

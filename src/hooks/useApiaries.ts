@@ -6,7 +6,7 @@ export type Apiary = {
     name: string
     station: string
     waterSourceDistanceMeters: number
-    region: 'EU_NON_EU_MIX' | 'EU_MIX' | 'NATIONAL' | 'REGIONAL_GPS_VERIFIED'
+    realRegion: string
 }
 
 function storageKey(address: string) {
