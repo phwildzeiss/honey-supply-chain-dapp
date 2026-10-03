@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useChainId, useConnection } from 'wagmi'
 import {
@@ -11,6 +12,8 @@ import {
 } from '../generated'
 import { addresses } from '../addresses'
 import ActorLabel from '../components/ActorLabel'
+import { requestLabAnalysis, requestAward } from '../simulator'
+import { useRequestedAwards } from '../hooks/useRequestedAwards'
 
 const STATES = ['Active', 'RetestRequired', 'NotSellable']
 const REASONS = ['None', 'WaterContentExceeded', 'TemperatureViolation']
@@ -31,7 +34,7 @@ function BatchDetail() {
     args: id !== undefined ? [id] : undefined,
     query: { enabled },
   })
-  const { data: qualityData } = useReadConsumerGatewayGetQualityData({
+  const { data: qualityData, refetch: refetchQualityData } = useReadConsumerGatewayGetQualityData({
     address: consumerGateway,
     args: id !== undefined ? [id] : undefined,
     query: { enabled },
@@ -81,6 +84,9 @@ function BatchDetail() {
         beekeeper={batch.beekeeper}
         qualityIndex={qualityIndex}
         actorRegistry={actorRegistry}
+        isBeekeeperOfThisBatch={address?.toLowerCase() === batch.beekeeper.toLowerCase()}
+        onQualityChanged={refetchQualityData}
+        state={state}
       />
     </div>
   )
@@ -91,22 +97,59 @@ function BatchDocuments({
   beekeeper,
   qualityIndex,
   actorRegistry,
+  isBeekeeperOfThisBatch,
+  onQualityChanged,
+  state,
 }: {
   batchId: bigint | undefined
   beekeeper: `0x${string}`
   qualityIndex: `0x${string}` | undefined
   actorRegistry: `0x${string}` | undefined
+  isBeekeeperOfThisBatch: boolean
+  onQualityChanged: () => void
+  state: number
 }) {
-  const { data: labReportCid } = useReadQualityIndexPhqiReportCid({
+  const [labStatus, setLabStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [awardStatus, setAwardStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+  const { isRequested, markRequested } = useRequestedAwards()
+
+  const { data: labReportCid, refetch: refetchLabReportCid } = useReadQualityIndexPhqiReportCid({
     address: qualityIndex,
     args: batchId !== undefined ? [batchId] : undefined,
     query: { enabled: Boolean(qualityIndex && batchId !== undefined) },
   })
-  const { data: awardCertificateCid } = useReadQualityIndexAwardCertificateCid({
+  const { data: awardCertificateCid, refetch: refetchAwardCertificateCid } = useReadQualityIndexAwardCertificateCid({
     address: qualityIndex,
     args: batchId !== undefined ? [batchId] : undefined,
     query: { enabled: Boolean(qualityIndex && batchId !== undefined) },
   })
+
+  async function handleRequestLab() {
+    if (batchId === undefined) return
+    setLabStatus('loading')
+    try {
+      await requestLabAnalysis(Number(batchId))
+      await refetchLabReportCid()
+      onQualityChanged()
+      setLabStatus('idle')
+    } catch {
+      setLabStatus('error')
+    }
+  }
+
+  async function handleRequestAward() {
+    if (batchId === undefined) return
+    setAwardStatus('loading')
+    try {
+      await requestAward(Number(batchId))
+      await refetchAwardCertificateCid()
+      markRequested(Number(batchId))
+      onQualityChanged()
+      setAwardStatus('idle')
+    } catch {
+      setAwardStatus('error')
+    }
+  }
   const { data: certificationData } = useReadActorRegistryCertifications({
     address: actorRegistry,
     args: [beekeeper],
@@ -140,17 +183,37 @@ function BatchDocuments({
         ) : (
           'noch nicht vorhanden'
         )}
+        {isBeekeeperOfThisBatch && (!labReportCid || state === 1) && (
+          <>
+            {' '}
+            <button type="button" onClick={handleRequestLab} disabled={labStatus === 'loading'}>
+              {labStatus === 'loading' ? 'wird angefordert...' : 'anfordern'}
+            </button>
+          </>
+        )}
       </p>
+      {labStatus === 'error' && <p>Laboranalyse anfordern fehlgeschlagen.</p>}
       <p>
         Prämierungsurkunde:{' '}
         {awardCertificateCid ? (
           <a href={IPFS_GATEWAY + awardCertificateCid} target="_blank" rel="noreferrer">
             ansehen
           </a>
+        ) : batchId !== undefined && isRequested(Number(batchId)) ? (
+          'keine Prämierung erhalten'
         ) : (
-          'noch nicht vorhanden'
+          'noch nicht angefordert'
+        )}
+        {isBeekeeperOfThisBatch && !awardCertificateCid && !(batchId !== undefined && isRequested(Number(batchId))) && (
+          <>
+            {' '}
+            <button type="button" onClick={handleRequestAward} disabled={awardStatus === 'loading'}>
+              {awardStatus === 'loading' ? 'wird angefordert...' : 'anfordern'}
+            </button>
+          </>
         )}
       </p>
+      {awardStatus === 'error' && <p>Prämierung anfordern fehlgeschlagen.</p>}
       <p>
         Zertifikat des Imkers:{' '}
         {beekeeperCertCid ? (

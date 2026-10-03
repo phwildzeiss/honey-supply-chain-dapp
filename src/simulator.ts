@@ -42,3 +42,31 @@ export async function uploadOrigin(regions: string[]): Promise<string> {
   const data: { cid: string } = await response.json()
   return data.cid
 }
+
+export async function requestLabAnalysis(batchId: number): Promise<void> {
+  const response = await fetch(`${SIMULATOR_URL}/api/lab/analysis`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ batchId }),
+  })
+  if (!response.ok) throw new Error('Laboranalyse-Anfrage fehlgeschlagen.')
+}
+
+export async function requestAward(batchId: number): Promise<void> {
+  const response = await fetch(`${SIMULATOR_URL}/api/awards`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ batchId }),
+  })
+  if (!response.ok) throw new Error('Prämierungs-Anfrage fehlgeschlagen.')
+}
+
+export async function requestCertification(beekeeperAddress: string): Promise<{ certification: string }> {
+  const response = await fetch(`${SIMULATOR_URL}/api/certifications`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ beekeeperAddress }),
+  })
+  if (!response.ok) throw new Error('Zertifizierungs-Anfrage fehlgeschlagen.')
+  return response.json()
+}
