@@ -79,12 +79,21 @@ function BatchDetail() {
           <Link to={`/batches/${batchId}/origin`}>Herkunft eintragen</Link>
         </p>
       )}
+      {address?.toLowerCase() === holder.toLowerCase() && (
+        <p>
+          <Link to={`/batches/${batchId}/transfer`}>Charge übergeben</Link>
+        </p>
+      )}
       <BatchDocuments
         batchId={id}
         beekeeper={batch.beekeeper}
         qualityIndex={qualityIndex}
         actorRegistry={actorRegistry}
         isBeekeeperOfThisBatch={address?.toLowerCase() === batch.beekeeper.toLowerCase()}
+        canRequestLab={
+          address?.toLowerCase() === batch.beekeeper.toLowerCase() ||
+          (address?.toLowerCase() === holder.toLowerCase() && state === 1)
+        }
         onQualityChanged={refetchQualityData}
         state={state}
       />
@@ -98,6 +107,7 @@ function BatchDocuments({
   qualityIndex,
   actorRegistry,
   isBeekeeperOfThisBatch,
+  canRequestLab,
   onQualityChanged,
   state,
 }: {
@@ -106,6 +116,7 @@ function BatchDocuments({
   qualityIndex: `0x${string}` | undefined
   actorRegistry: `0x${string}` | undefined
   isBeekeeperOfThisBatch: boolean
+  canRequestLab: boolean
   onQualityChanged: () => void
   state: number
 }) {
@@ -183,7 +194,7 @@ function BatchDocuments({
         ) : (
           'noch nicht vorhanden'
         )}
-        {isBeekeeperOfThisBatch && (!labReportCid || state === 1) && (
+        {canRequestLab && (!labReportCid || state === 1) && (
           <>
             {' '}
             <button type="button" onClick={handleRequestLab} disabled={labStatus === 'loading'}>

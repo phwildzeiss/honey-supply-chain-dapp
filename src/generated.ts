@@ -177,6 +177,24 @@ export const actorRegistryAbi = [
   },
   {
     type: 'function',
+    inputs: [],
+    name: 'getAllActors',
+    outputs: [
+      { name: 'addresses', internalType: 'address[]', type: 'address[]' },
+      {
+        name: 'actorList',
+        internalType: 'struct ActorRegistry.Actor[]',
+        type: 'tuple[]',
+        components: [
+          { name: 'name', internalType: 'string', type: 'string' },
+          { name: 'registered', internalType: 'bool', type: 'bool' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     inputs: [{ name: 'role', internalType: 'bytes32', type: 'bytes32' }],
     name: 'getRoleAdmin',
     outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
@@ -1490,6 +1508,15 @@ export const useReadActorRegistryCertifications =
 export const useReadActorRegistryGetActor = /*#__PURE__*/ createUseReadContract(
   { abi: actorRegistryAbi, functionName: 'getActor' },
 )
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link actorRegistryAbi}__ and `functionName` set to `"getAllActors"`
+ */
+export const useReadActorRegistryGetAllActors =
+  /*#__PURE__*/ createUseReadContract({
+    abi: actorRegistryAbi,
+    functionName: 'getAllActors',
+  })
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link actorRegistryAbi}__ and `functionName` set to `"getRoleAdmin"`
