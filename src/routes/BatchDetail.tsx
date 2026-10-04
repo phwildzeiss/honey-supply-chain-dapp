@@ -10,8 +10,10 @@ import {
   useReadQualityIndexOriginCid,
   useReadActorRegistryCertifications,
   useReadHoneyTokenProcessedBatches,
+  useReadSupplyChainRetailReceiptTimestamp,
   useWriteSupplyChainRecordTransportData,
   useWriteSupplyChainRecordWarehouseData,
+  useWriteSupplyChainRecordRetailReceipt,
 } from '../generated'
 import { addresses } from '../addresses'
 import ActorLabel from '../components/ActorLabel'
@@ -41,6 +43,22 @@ function BatchDetail() {
     args: id !== undefined ? [id] : undefined,
     query: { enabled: Boolean(honeyToken && id !== undefined) },
   })
+  const { data: retailReceiptTimestamp, refetch: refetchRetailReceiptTimestamp } = useReadSupplyChainRetailReceiptTimestamp({
+    address: supplyChain,
+    args: id !== undefined ? [id] : undefined,
+    query: { enabled: Boolean(supplyChain && id !== undefined) },
+  })
+  const confirmRetailReceipt = useWriteSupplyChainRecordRetailReceipt()
+  const retailReceiptTxReceipt = useWaitForTransactionReceipt({ hash: confirmRetailReceipt.data })
+
+  useEffect(() => {
+    if (retailReceiptTxReceipt.isSuccess) refetchRetailReceiptTimestamp()
+  }, [retailReceiptTxReceipt.isSuccess])
+
+  function handleConfirmRetailReceipt() {
+    if (!id || !supplyChain) return
+    confirmRetailReceipt.mutate({ address: supplyChain, args: [id] })
+  }
 
   const { data: batchData } = useReadConsumerGatewayGetBatchData({
     address: consumerGateway,
@@ -80,6 +98,12 @@ function BatchDetail() {
       <p>Grund: {REASONS[reason]}</p>
       <p>Abfüllstatus: {processed ? 'abgefüllt' : 'noch nicht abgefüllt'}</p>
       <p>
+        Wareneingang:{' '}
+        {retailReceiptTimestamp
+          ? new Date(Number(retailReceiptTimestamp) * 1000).toLocaleString()
+          : 'noch nicht bestätigt'}
+      </p>
+      <p>
         Preis (500 g):{' '}
         {priceQuery.isError
           ? 'nicht verkäuflich'
@@ -104,6 +128,19 @@ function BatchDetail() {
       {roles.bottler && address?.toLowerCase() === holder.toLowerCase() && !processed && (
         <p>
           <Link to={`/batches/${batchId}/bottle`}>Abfüllen</Link>
+        </p>
+      )}
+      {roles.retailer && address?.toLowerCase() === holder.toLowerCase() && !retailReceiptTimestamp && (
+        <p>
+          <button
+            type="button"
+            onClick={handleConfirmRetailReceipt}
+            disabled={confirmRetailReceipt.isPending || retailReceiptTxReceipt.isLoading}
+          >
+            {confirmRetailReceipt.isPending || retailReceiptTxReceipt.isLoading
+              ? 'wird bestätigt...'
+              : 'Wareneingang bestätigen'}
+          </button>
         </p>
       )}
       <BatchDocuments
