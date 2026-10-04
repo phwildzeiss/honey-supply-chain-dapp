@@ -71,9 +71,10 @@ function SubmitOrigin() {
 
   if (phase === 'done') {
     return (
-      <p>
-        Herkunft wurde eingetragen. <Link to={`/batches/${batchId}`}>Zur Charge</Link>
-      </p>
+      <div>
+        <p>Herkunft wurde eingetragen.</p>
+        <Link to={`/batches/${batchId}`} className="tile">Zur Charge</Link>
+      </div>
     )
   }
 

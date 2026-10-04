@@ -74,10 +74,10 @@ function NewBatch() {
 
   if (receipt.isSuccess) {
     return (
-      <p>
-        Charge #{nextBatchId?.toString()} wurde angelegt.{' '}
-        <Link to={`/batches/${nextBatchId}`}>Ansehen</Link>
-      </p>
+      <div>
+        <p>Charge #{nextBatchId?.toString()} wurde angelegt.</p>
+        <Link to={`/batches/${nextBatchId}`} className="tile">Ansehen</Link>
+      </div>
     )
   }
 

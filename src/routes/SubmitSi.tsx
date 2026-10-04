@@ -63,9 +63,10 @@ function SubmitSi() {
 
   if (receipt.isSuccess) {
     return (
-      <p>
-        SI wurde eingereicht. <Link to={`/batches/${batchId}`}>Zur Charge</Link>
-      </p>
+      <div>
+        <p>SI wurde eingereicht.</p>
+        <Link to={`/batches/${batchId}`} className="tile">Zur Charge</Link>
+      </div>
     )
   }
 

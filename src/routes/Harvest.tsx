@@ -48,13 +48,24 @@ function Harvest() {
       </form>
 
       <h2>Erfasste Erntemengen</h2>
-      <ul>
-        {entries.map((entry) => (
-          <li key={`${entry.apiaryId}-${entry.year}`}>
-            {apiaryName(entry.apiaryId)}, {entry.year}: {(entry.grams / 1000).toFixed(1)} kg
-          </li>
-        ))}
-      </ul>
+      <table>
+        <thead>
+          <tr>
+            <th>Bienenstand</th>
+            <th>Erntejahr</th>
+            <th>Menge (kg)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((entry) => (
+            <tr key={`${entry.apiaryId}-${entry.year}`}>
+              <td>{apiaryName(entry.apiaryId)}</td>
+              <td>{entry.year}</td>
+              <td>{(entry.grams / 1000).toFixed(1)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

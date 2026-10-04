@@ -50,7 +50,7 @@ function Dashboard() {
           <Tile to="/apiaries" label="Bienenstände" />
           <Tile to="/harvest" label="Ernte eintragen" />
           <Tile to="/batches/new" label="Gebinde anlegen" />
-          <button type="button" onClick={handleRequestCertification} disabled={certStatus === 'loading'}>
+          <button type="button" className="tile" onClick={handleRequestCertification} disabled={certStatus === 'loading'}>
             {certStatus === 'loading' ? 'wird beantragt...' : 'Zertifikat beantragen'}
           </button>
           {certStatus === 'done' && <p>Ergebnis: {certResult}</p>}

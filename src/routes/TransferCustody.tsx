@@ -68,9 +68,10 @@ function TransferCustody() {
 
   if (transferReceipt.isSuccess) {
     return (
-      <p>
-        Charge übergeben. <Link to={`/batches/${batchId}`}>Zur Charge</Link>
-      </p>
+      <div>
+        <p>Charge übergeben.</p>
+        <Link to={`/batches/${batchId}`} className="tile">Zur Charge</Link>
+      </div>
     )
   }
 

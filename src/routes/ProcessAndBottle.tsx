@@ -53,9 +53,10 @@ function ProcessAndBottle() {
 
   if (receipt.isSuccess) {
     return (
-      <p>
-        Charge wurde abgefüllt. <Link to={`/batches/${batchId}`}>Zur Charge</Link>
-      </p>
+      <div>
+        <p>Charge wurde abgefüllt.</p>
+        <Link to={`/batches/${batchId}`} className="tile">Zur Charge</Link>
+      </div>
     )
   }
 

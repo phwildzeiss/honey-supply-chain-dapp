@@ -6,7 +6,7 @@ type TileProps = {
 }
 
 function Tile({ to, label }: TileProps) {
-  return <Link to={to} style={{ display: 'block', marginBottom: '0.5rem' }}>{label}</Link>
+  return <Link to={to} className="tile">{label}</Link>
 }
 
 export default Tile

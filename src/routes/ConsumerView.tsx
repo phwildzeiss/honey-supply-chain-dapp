@@ -113,11 +113,14 @@ function ConsumerBatchDetails({
   return (
     <div>
       <h2>Charge #{batchId.toString()}</h2>
+
+      <h3>Grunddaten</h3>
       <p>Erntejahr: {batch.harvestYear}</p>
       <p>Imker: <ActorLabel address={batch.beekeeper} /></p>
       <p>Menge: {(Number(batch.quantity) / 1000).toFixed(1)} kg</p>
       <p>Aktueller Halter: <ActorLabel address={holder} /></p>
-      <p>Abgefüllte Gläser (500 g): {jarCount !== undefined ? jarCount.toString() : '...'}</p>
+
+      <h3>Qualität</h3>
       <p>SI: {si.toString()}</p>
       <p>PHQI: {phqi.toString()}</p>
       <p>MCI: {mci.toString()}</p>
@@ -130,6 +133,9 @@ function ConsumerBatchDetails({
             ? `Erneute Prüfung angefordert (${REASON_LABELS[reason]})`
             : `Nicht verkäuflich (${REASON_LABELS[reason]})`}
       </p>
+
+      <h3>Status</h3>
+      <p>Abgefüllte Gläser (500 g): {jarCount !== undefined ? jarCount.toString() : '...'}</p>
       <p>
         Preis (500 g):{' '}
         {priceQuery.isError
@@ -138,6 +144,8 @@ function ConsumerBatchDetails({
             ? `${(Number(priceQuery.data) / 100).toFixed(2)} €`
             : '...'}
       </p>
+
+      <h3>Dokumente</h3>
       <BatchDocuments
         batchId={batchId}
         beekeeper={batch.beekeeper}

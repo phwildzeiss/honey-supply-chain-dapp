@@ -84,20 +84,31 @@ function BatchDetail() {
 
   const [batch, holder] = batchData
   const [si, phqi, mci, qi, state, reason] = qualityData
+  const isBeekeeperOfThisBatch = address?.toLowerCase() === batch.beekeeper.toLowerCase()
+  const isCurrentHolder = address?.toLowerCase() === holder.toLowerCase()
+  const canBottle = roles.bottler && isCurrentHolder && !processed
+  const canConfirmRetailReceipt = roles.retailer && isCurrentHolder && !retailReceiptTimestamp
+  const hasAnyAction = isBeekeeperOfThisBatch || isCurrentHolder
 
   return (
     <div>
       <h1>Charge #{batchId}</h1>
+
+      <h2>Grunddaten</h2>
       <p>Erntejahr: {batch.harvestYear}</p>
       <p>Imker: <ActorLabel address={batch.beekeeper} /></p>
       <p>Menge: {(Number(batch.quantity) / 1000).toFixed(1)} kg</p>
       <p>Aktueller Halter: <ActorLabel address={holder} /></p>
+
+      <h2>Qualität</h2>
       <p>SI: {si.toString()}</p>
       <p>PHQI: {phqi.toString()}</p>
       <p>MCI: {mci.toString()}</p>
       <p>QI: {qi.toString()}</p>
       <p>Zustand: {STATES[state]}</p>
       <p>Grund: {REASONS[reason]}</p>
+
+      <h2>Status</h2>
       <p>Abfüllstatus: {processed ? 'abgefüllt' : 'noch nicht abgefüllt'}</p>
       <p>Abgefüllte Gläser (500 g): {jarCount !== undefined ? jarCount.toString() : '...'}</p>
       <p>
@@ -114,48 +125,49 @@ function BatchDetail() {
             ? `${(Number(priceQuery.data) / 100).toFixed(2)} €`
             : '...'}
       </p>
-      {address?.toLowerCase() === batch.beekeeper.toLowerCase() && (
-        <p>
-          <Link to={`/batches/${batchId}/si`}>SI einreichen</Link>{' '}
-          <Link to={`/batches/${batchId}/origin`}>Herkunft eintragen</Link>
-        </p>
-      )}
-      {address?.toLowerCase() === holder.toLowerCase() && (
+
+      {hasAnyAction && (
         <>
+          <h2>Aktionen</h2>
           <p>
-            <Link to={`/batches/${batchId}/transfer`}>Charge übergeben</Link>
+            {isBeekeeperOfThisBatch && (
+              <>
+                <Link to={`/batches/${batchId}/si`} className="tile">SI einreichen</Link>
+                <Link to={`/batches/${batchId}/origin`} className="tile">Herkunft eintragen</Link>
+              </>
+            )}
+            {isCurrentHolder && (
+              <Link to={`/batches/${batchId}/transfer`} className="tile">Charge übergeben</Link>
+            )}
+            {canBottle && (
+              <Link to={`/batches/${batchId}/bottle`} className="tile">Abfüllen</Link>
+            )}
+            {canConfirmRetailReceipt && (
+              <button
+                type="button"
+                onClick={handleConfirmRetailReceipt}
+                disabled={confirmRetailReceipt.isPending || retailReceiptTxReceipt.isLoading}
+              >
+                {confirmRetailReceipt.isPending || retailReceiptTxReceipt.isLoading
+                  ? 'wird bestätigt...'
+                  : 'Wareneingang bestätigen'}
+              </button>
+            )}
           </p>
-          <HandlingActions batchId={id} supplyChain={supplyChain} onReported={refetchQualityData} />
+          {isCurrentHolder && (
+            <HandlingActions batchId={id} supplyChain={supplyChain} onReported={refetchQualityData} />
+          )}
         </>
       )}
-      {roles.bottler && address?.toLowerCase() === holder.toLowerCase() && !processed && (
-        <p>
-          <Link to={`/batches/${batchId}/bottle`}>Abfüllen</Link>
-        </p>
-      )}
-      {roles.retailer && address?.toLowerCase() === holder.toLowerCase() && !retailReceiptTimestamp && (
-        <p>
-          <button
-            type="button"
-            onClick={handleConfirmRetailReceipt}
-            disabled={confirmRetailReceipt.isPending || retailReceiptTxReceipt.isLoading}
-          >
-            {confirmRetailReceipt.isPending || retailReceiptTxReceipt.isLoading
-              ? 'wird bestätigt...'
-              : 'Wareneingang bestätigen'}
-          </button>
-        </p>
-      )}
+
+      <h2>Dokumente</h2>
       <BatchDocuments
         batchId={id}
         beekeeper={batch.beekeeper}
         qualityIndex={qualityIndex}
         actorRegistry={actorRegistry}
-        isBeekeeperOfThisBatch={address?.toLowerCase() === batch.beekeeper.toLowerCase()}
-        canRequestLab={
-          address?.toLowerCase() === batch.beekeeper.toLowerCase() ||
-          (address?.toLowerCase() === holder.toLowerCase() && state === 1)
-        }
+        isBeekeeperOfThisBatch={isBeekeeperOfThisBatch}
+        canRequestLab={isBeekeeperOfThisBatch || (isCurrentHolder && state === 1)}
         onQualityChanged={refetchQualityData}
         state={state}
       />

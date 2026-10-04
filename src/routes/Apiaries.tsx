@@ -52,13 +52,26 @@ function Apiaries() {
       </form>
 
       <h2>Angelegte Bienenstände</h2>
-      <ul>
-        {apiaries.map((apiary) => (
-          <li key={apiary.id}>
-            {apiary.name} — {apiary.station}, {apiary.waterSourceDistanceMeters} m, {apiary.realRegion}
-          </li>
-        ))}
-      </ul>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Sensordatenquelle</th>
+            <th>Abstand zur Wasserquelle (m)</th>
+            <th>Region</th>
+          </tr>
+        </thead>
+        <tbody>
+          {apiaries.map((apiary) => (
+            <tr key={apiary.id}>
+              <td>{apiary.name}</td>
+              <td>{apiary.station}</td>
+              <td>{apiary.waterSourceDistanceMeters}</td>
+              <td>{apiary.realRegion}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
