@@ -9,6 +9,7 @@ import BatchDetail from './routes/BatchDetail'
 import SubmitOrigin from './routes/SubmitOrigin'
 import SubmitSi from './routes/SubmitSi'
 import TransferCustody from './routes/TransferCustody'
+import ProcessAndBottle from './routes/ProcessAndBottle'
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
           <Route path="/batches/:batchId/origin" element={<SubmitOrigin />} />
           <Route path="/batches/:batchId/si" element={<SubmitSi />} />
           <Route path="/batches/:batchId/transfer" element={<TransferCustody />} />
+          <Route path="/batches/:batchId/bottle" element={<ProcessAndBottle />} />
         </Route>
       </Routes>
     </BrowserRouter>

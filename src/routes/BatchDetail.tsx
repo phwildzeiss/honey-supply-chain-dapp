@@ -9,6 +9,7 @@ import {
   useReadQualityIndexAwardCertificateCid,
   useReadQualityIndexOriginCid,
   useReadActorRegistryCertifications,
+  useReadHoneyTokenProcessedBatches,
   useWriteSupplyChainRecordTransportData,
   useWriteSupplyChainRecordWarehouseData,
 } from '../generated'
@@ -16,6 +17,7 @@ import { addresses } from '../addresses'
 import ActorLabel from '../components/ActorLabel'
 import { requestLabAnalysis, requestAward, fetchSensorReading, type SensorReading } from '../simulator'
 import { useRequestedAwards } from '../hooks/useRequestedAwards'
+import { useMyRoles } from '../hooks/useMyRoles'
 
 const STATES = ['Active', 'RetestRequired', 'NotSellable']
 const REASONS = ['None', 'WaterContentExceeded', 'TemperatureViolation']
@@ -29,8 +31,16 @@ function BatchDetail() {
   const qualityIndex = addresses[chainId as keyof typeof addresses]?.QualityIndex
   const actorRegistry = addresses[chainId as keyof typeof addresses]?.ActorRegistry
   const supplyChain = addresses[chainId as keyof typeof addresses]?.SupplyChain
+  const honeyToken = addresses[chainId as keyof typeof addresses]?.HoneyToken
   const id = batchId ? BigInt(batchId) : undefined
   const enabled = Boolean(consumerGateway && id !== undefined)
+  const roles = useMyRoles()
+
+  const { data: processed } = useReadHoneyTokenProcessedBatches({
+    address: honeyToken,
+    args: id !== undefined ? [id] : undefined,
+    query: { enabled: Boolean(honeyToken && id !== undefined) },
+  })
 
   const { data: batchData } = useReadConsumerGatewayGetBatchData({
     address: consumerGateway,
@@ -68,6 +78,7 @@ function BatchDetail() {
       <p>QI: {qi.toString()}</p>
       <p>Zustand: {STATES[state]}</p>
       <p>Grund: {REASONS[reason]}</p>
+      <p>Abfüllstatus: {processed ? 'abgefüllt' : 'noch nicht abgefüllt'}</p>
       <p>
         Preis (500 g):{' '}
         {priceQuery.isError
@@ -89,6 +100,11 @@ function BatchDetail() {
           </p>
           <HandlingActions batchId={id} supplyChain={supplyChain} onReported={refetchQualityData} />
         </>
+      )}
+      {roles.bottler && address?.toLowerCase() === holder.toLowerCase() && !processed && (
+        <p>
+          <Link to={`/batches/${batchId}/bottle`}>Abfüllen</Link>
+        </p>
       )}
       <BatchDocuments
         batchId={id}
