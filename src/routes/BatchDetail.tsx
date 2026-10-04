@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useChainId, useConnection } from 'wagmi'
+import { useChainId, useConnection, useWaitForTransactionReceipt } from 'wagmi'
 import {
   useReadConsumerGatewayGetBatchData,
   useReadConsumerGatewayGetPrice,
@@ -9,10 +9,12 @@ import {
   useReadQualityIndexAwardCertificateCid,
   useReadQualityIndexOriginCid,
   useReadActorRegistryCertifications,
+  useWriteSupplyChainRecordTransportData,
+  useWriteSupplyChainRecordWarehouseData,
 } from '../generated'
 import { addresses } from '../addresses'
 import ActorLabel from '../components/ActorLabel'
-import { requestLabAnalysis, requestAward } from '../simulator'
+import { requestLabAnalysis, requestAward, fetchSensorReading, type SensorReading } from '../simulator'
 import { useRequestedAwards } from '../hooks/useRequestedAwards'
 
 const STATES = ['Active', 'RetestRequired', 'NotSellable']
@@ -26,6 +28,7 @@ function BatchDetail() {
   const consumerGateway = addresses[chainId as keyof typeof addresses]?.ConsumerGateway
   const qualityIndex = addresses[chainId as keyof typeof addresses]?.QualityIndex
   const actorRegistry = addresses[chainId as keyof typeof addresses]?.ActorRegistry
+  const supplyChain = addresses[chainId as keyof typeof addresses]?.SupplyChain
   const id = batchId ? BigInt(batchId) : undefined
   const enabled = Boolean(consumerGateway && id !== undefined)
 
@@ -80,9 +83,12 @@ function BatchDetail() {
         </p>
       )}
       {address?.toLowerCase() === holder.toLowerCase() && (
-        <p>
-          <Link to={`/batches/${batchId}/transfer`}>Charge übergeben</Link>
-        </p>
+        <>
+          <p>
+            <Link to={`/batches/${batchId}/transfer`}>Charge übergeben</Link>
+          </p>
+          <HandlingActions batchId={id} supplyChain={supplyChain} onReported={refetchQualityData} />
+        </>
       )}
       <BatchDocuments
         batchId={id}
@@ -97,6 +103,129 @@ function BatchDetail() {
         onQualityChanged={refetchQualityData}
         state={state}
       />
+    </div>
+  )
+}
+
+function HandlingActions({
+  batchId,
+  supplyChain,
+  onReported,
+}: {
+  batchId: bigint | undefined
+  supplyChain: `0x${string}` | undefined
+  onReported: () => void
+}) {
+  const recordTransport = useWriteSupplyChainRecordTransportData()
+  const transportReceipt = useWaitForTransactionReceipt({ hash: recordTransport.data })
+  const recordWarehouse = useWriteSupplyChainRecordWarehouseData()
+  const warehouseReceipt = useWaitForTransactionReceipt({ hash: recordWarehouse.data })
+  const recordDefrost = useWriteSupplyChainRecordWarehouseData()
+  const defrostReceipt = useWaitForTransactionReceipt({ hash: recordDefrost.data })
+
+  const [transportStatus, setTransportStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [transportResult, setTransportResult] = useState<SensorReading | null>(null)
+  const [warehouseStatus, setWarehouseStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [warehouseResult, setWarehouseResult] = useState<SensorReading | null>(null)
+  const [defrostStatus, setDefrostStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [defrostResult, setDefrostResult] = useState<SensorReading | null>(null)
+
+  useEffect(() => {
+    if (transportReceipt.isSuccess) onReported()
+  }, [transportReceipt.isSuccess])
+  useEffect(() => {
+    if (warehouseReceipt.isSuccess) onReported()
+  }, [warehouseReceipt.isSuccess])
+  useEffect(() => {
+    if (defrostReceipt.isSuccess) onReported()
+  }, [defrostReceipt.isSuccess])
+
+  async function handleTransport() {
+    if (batchId === undefined || !supplyChain) return
+    setTransportStatus('loading')
+    try {
+      const reading = await fetchSensorReading('transport')
+      setTransportResult(reading)
+      recordTransport.mutate({
+        address: supplyChain,
+        args: [batchId, BigInt(reading.temperatureCelsius), BigInt(reading.durationMinutes)],
+      })
+      setTransportStatus('idle')
+    } catch {
+      setTransportStatus('error')
+    }
+  }
+
+  async function handleWarehouse() {
+    if (batchId === undefined || !supplyChain) return
+    setWarehouseStatus('loading')
+    try {
+      const reading = await fetchSensorReading('warehouse')
+      setWarehouseResult(reading)
+      recordWarehouse.mutate({
+        address: supplyChain,
+        args: [batchId, BigInt(reading.temperatureCelsius), BigInt(reading.durationMinutes)],
+      })
+      setWarehouseStatus('idle')
+    } catch {
+      setWarehouseStatus('error')
+    }
+  }
+
+  async function handleDefrost() {
+    if (batchId === undefined || !supplyChain) return
+    setDefrostStatus('loading')
+    try {
+      const reading = await fetchSensorReading('defrost')
+      setDefrostResult(reading)
+      recordDefrost.mutate({
+        address: supplyChain,
+        args: [batchId, BigInt(reading.temperatureCelsius), BigInt(reading.durationMinutes)],
+      })
+      setDefrostStatus('idle')
+    } catch {
+      setDefrostStatus('error')
+    }
+  }
+
+  return (
+    <div>
+      <p>
+        <button type="button" onClick={handleTransport} disabled={transportStatus === 'loading'}>
+          {transportStatus === 'loading' ? 'wird gemeldet...' : 'Transportbedingungen melden'}
+        </button>
+        {transportResult && (
+          <>
+            {' '}— {transportResult.temperatureCelsius} °C, {transportResult.durationMinutes} min
+            {transportResult.violation ? ' (Verletzung!)' : ''}
+          </>
+        )}
+      </p>
+      {transportStatus === 'error' && <p>Transportbedingungen melden fehlgeschlagen.</p>}
+      <p>
+        <button type="button" onClick={handleWarehouse} disabled={warehouseStatus === 'loading'}>
+          {warehouseStatus === 'loading' ? 'wird gemeldet...' : 'Lagerbedingungen melden'}
+        </button>
+        {warehouseResult && (
+          <>
+            {' '}— {warehouseResult.temperatureCelsius} °C, {warehouseResult.durationMinutes} min
+            {warehouseResult.violation ? ' (Verletzung!)' : ''}
+          </>
+        )}
+      </p>
+      {warehouseStatus === 'error' && <p>Lagerbedingungen melden fehlgeschlagen.</p>}
+      <p>
+        <button type="button" onClick={handleDefrost} disabled={defrostStatus === 'loading'}>
+          {defrostStatus === 'loading' ? 'wird gemeldet...' : 'Auftauen melden'}
+        </button>
+        {defrostResult && (
+          <>
+            {' '}— {defrostResult.temperatureCelsius} °C, {defrostResult.durationMinutes} min
+            {defrostResult.violation ? ' (Verletzung!)' : ''}
+          </>
+        )}
+      </p>
+      {defrostStatus === 'error' && <p>Auftauen melden fehlgeschlagen.</p>}
     </div>
   )
 }

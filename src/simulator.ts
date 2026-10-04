@@ -61,6 +61,18 @@ export async function requestAward(batchId: number): Promise<void> {
   if (!response.ok) throw new Error('Prämierungs-Anfrage fehlgeschlagen.')
 }
 
+export type SensorReading = {
+  temperatureCelsius: number
+  durationMinutes: number
+  violation: boolean
+}
+
+export async function fetchSensorReading(kind: 'transport' | 'warehouse' | 'defrost'): Promise<SensorReading> {
+  const response = await fetch(`${SIMULATOR_URL}/api/sensors/${kind}`, { method: 'POST' })
+  if (!response.ok) throw new Error('Sensordaten-Anfrage fehlgeschlagen.')
+  return response.json()
+}
+
 export async function requestCertification(beekeeperAddress: string): Promise<{ certification: string }> {
   const response = await fetch(`${SIMULATOR_URL}/api/certifications`, {
     method: 'POST',
