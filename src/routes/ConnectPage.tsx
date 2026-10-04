@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom'
+import { Navigate, Link } from 'react-router-dom'
 import { useConnect, useConnection, useConnectors } from 'wagmi'
 
 function ConnectPage() {
@@ -11,9 +11,12 @@ function ConnectPage() {
   }
 
   return (
-    <button type="button" onClick={() => connect({ connector: connectors[0] })} disabled={isPending}>
-      {isPending ? 'Connecting...' : 'Connect wallet'}
-    </button>
+    <div>
+      <button type="button" onClick={() => connect({ connector: connectors[0] })} disabled={isPending}>
+        {isPending ? 'Connecting...' : 'Connect wallet'}
+      </button>
+      <p><Link to="/consumer">Honig-Herkunft als Konsument prüfen</Link></p>
+    </div>
   )
 }
 

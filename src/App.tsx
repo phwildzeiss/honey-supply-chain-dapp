@@ -11,12 +11,14 @@ import SubmitSi from './routes/SubmitSi'
 import TransferCustody from './routes/TransferCustody'
 import ProcessAndBottle from './routes/ProcessAndBottle'
 import MyBatches from './routes/MyBatches'
+import ConsumerView from './routes/ConsumerView'
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<ConnectPage />} />
+        <Route path="/consumer" element={<ConsumerView />} />
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/apiaries" element={<Apiaries />} />

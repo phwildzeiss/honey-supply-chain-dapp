@@ -283,7 +283,7 @@ function HandlingActions({
   )
 }
 
-function BatchDocuments({
+export function BatchDocuments({
   batchId,
   beekeeper,
   qualityIndex,
