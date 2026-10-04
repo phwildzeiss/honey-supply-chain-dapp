@@ -12,6 +12,7 @@ import TransferCustody from './routes/TransferCustody'
 import ProcessAndBottle from './routes/ProcessAndBottle'
 import MyBatches from './routes/MyBatches'
 import ConsumerView from './routes/ConsumerView'
+import SubmitCertification from './routes/SubmitCertification'
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
           <Route path="/batches/:batchId/transfer" element={<TransferCustody />} />
           <Route path="/batches/:batchId/bottle" element={<ProcessAndBottle />} />
           <Route path="/my-batches" element={<MyBatches />} />
+          <Route path="/certification" element={<SubmitCertification />} />
         </Route>
       </Routes>
     </BrowserRouter>

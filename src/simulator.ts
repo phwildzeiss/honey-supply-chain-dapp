@@ -73,11 +73,14 @@ export async function fetchSensorReading(kind: 'transport' | 'warehouse' | 'defr
   return response.json()
 }
 
-export async function requestCertification(beekeeperAddress: string): Promise<{ certification: string }> {
+export async function requestCertification(
+  beekeeperAddress: string,
+  requested: string,
+): Promise<{ certification: string }> {
   const response = await fetch(`${SIMULATOR_URL}/api/certifications`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ beekeeperAddress }),
+    body: JSON.stringify({ beekeeperAddress, requested }),
   })
   if (!response.ok) throw new Error('Zertifizierungs-Anfrage fehlgeschlagen.')
   return response.json()

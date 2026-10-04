@@ -1,31 +1,14 @@
-import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useConnection } from 'wagmi'
 import { useMyRoles } from '../hooks/useMyRoles'
-import { requestCertification } from '../simulator'
 import Tile from '../components/Tile'
 
 function Dashboard() {
-  const { address, isConnected } = useConnection()
+  const { isConnected } = useConnection()
   const roles = useMyRoles()
-
-  const [certStatus, setCertStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
-  const [certResult, setCertResult] = useState('')
 
   if (!isConnected) {
     return <Navigate to="/" replace />
-  }
-
-  async function handleRequestCertification() {
-    if (!address) return
-    setCertStatus('loading')
-    try {
-      const result = await requestCertification(address)
-      setCertResult(result.certification)
-      setCertStatus('done')
-    } catch {
-      setCertStatus('error')
-    }
   }
 
   return (
@@ -70,11 +53,7 @@ function Dashboard() {
           <Tile to="/apiaries" label="Bienenstände" />
           <Tile to="/harvest" label="Ernte eintragen" />
           <Tile to="/batches/new" label="Gebinde anlegen" />
-          <button type="button" className="tile" onClick={handleRequestCertification} disabled={certStatus === 'loading'}>
-            {certStatus === 'loading' ? 'wird beantragt...' : 'Zertifikat beantragen'}
-          </button>
-          {certStatus === 'done' && <p>Ergebnis: {certResult}</p>}
-          {certStatus === 'error' && <p>Zertifizierung beantragen fehlgeschlagen.</p>}
+          <Tile to="/certification" label="Zertifikat beantragen" />
         </div>
       )}
     </div>
