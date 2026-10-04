@@ -34,12 +34,32 @@ function Dashboard() {
       {roles.isLoading ? (
         <p>Rollen werden geladen...</p>
       ) : (
-        <ul>
-          <li>Imker: {roles.beekeeper ? 'ja' : 'nein'}</li>
-          <li>Abfüller: {roles.bottler ? 'ja' : 'nein'}</li>
-          <li>Einzelhändler: {roles.retailer ? 'ja' : 'nein'}</li>
-          <li>Logistik: {roles.logistics ? 'ja' : 'nein'}</li>
-        </ul>
+        <table>
+          <thead>
+            <tr>
+              <th>Rolle</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Imker</td>
+              <td>{roles.beekeeper ? 'ja' : 'nein'}</td>
+            </tr>
+            <tr>
+              <td>Abfüller</td>
+              <td>{roles.bottler ? 'ja' : 'nein'}</td>
+            </tr>
+            <tr>
+              <td>Einzelhändler</td>
+              <td>{roles.retailer ? 'ja' : 'nein'}</td>
+            </tr>
+            <tr>
+              <td>Logistik</td>
+              <td>{roles.logistics ? 'ja' : 'nein'}</td>
+            </tr>
+          </tbody>
+        </table>
       )}
 
       <Tile to="/my-batches" label="Meine Chargen" />
