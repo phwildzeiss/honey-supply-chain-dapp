@@ -42,6 +42,8 @@ function Dashboard() {
         </ul>
       )}
 
+      <Tile to="/my-batches" label="Meine Chargen" />
+
       {roles.beekeeper && (
         <div>
           <h2>Aktionen</h2>
