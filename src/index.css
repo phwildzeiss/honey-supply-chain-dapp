@@ -137,6 +137,10 @@ header span {
   color: var(--text-muted);
 }
 
+header strong {
+  margin-right: auto;
+}
+
 .tile {
   display: inline-block;
   padding: 1rem 1.25rem;

@@ -17,6 +17,7 @@ function Header() {
 
   return (
     <header>
+      <strong>Honig-Lieferkette</strong>
       <Link to="/dashboard">Dashboard</Link>
       <span>{address ? shortenAddress(address) : ''}</span>
       <span>{CHAIN_NAMES[chainId] ?? `Chain ${chainId}`}</span>
