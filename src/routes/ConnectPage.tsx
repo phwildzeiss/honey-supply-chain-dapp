@@ -12,6 +12,7 @@ function ConnectPage() {
 
   return (
     <div>
+      <h1>Honig-Lieferkette</h1>
       <button type="button" onClick={() => connect({ connector: connectors[0] })} disabled={isPending}>
         {isPending ? 'Connecting...' : 'Connect wallet'}
       </button>
