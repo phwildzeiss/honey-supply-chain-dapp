@@ -142,7 +142,9 @@ function BatchDetail() {
             {canBottle && (
               <Link to={`/batches/${batchId}/bottle`} className="tile">Abfüllen</Link>
             )}
-            {canConfirmRetailReceipt && (
+          </p>
+          {canConfirmRetailReceipt && (
+            <p>
               <button
                 type="button"
                 onClick={handleConfirmRetailReceipt}
@@ -152,8 +154,8 @@ function BatchDetail() {
                   ? 'wird bestätigt...'
                   : 'Wareneingang bestätigen'}
               </button>
-            )}
-          </p>
+            </p>
+          )}
           {isCurrentHolder && (
             <HandlingActions batchId={id} supplyChain={supplyChain} onReported={refetchQualityData} />
           )}
@@ -262,40 +264,31 @@ function HandlingActions({
         <button type="button" onClick={handleTransport} disabled={transportStatus === 'loading'}>
           {transportStatus === 'loading' ? 'wird gemeldet...' : 'Transportbedingungen melden'}
         </button>
-        {transportResult && (
-          <>
-            {' '}— {transportResult.temperatureCelsius} °C, {transportResult.durationMinutes} min
-            {transportResult.violation ? ' (Verletzung!)' : ''}
-          </>
-        )}
+        {transportResult && <>{' '}— {describeReading(transportResult)}</>}
       </p>
       {transportStatus === 'error' && <p>Transportbedingungen melden fehlgeschlagen.</p>}
       <p>
         <button type="button" onClick={handleWarehouse} disabled={warehouseStatus === 'loading'}>
           {warehouseStatus === 'loading' ? 'wird gemeldet...' : 'Lagerbedingungen melden'}
         </button>
-        {warehouseResult && (
-          <>
-            {' '}— {warehouseResult.temperatureCelsius} °C, {warehouseResult.durationMinutes} min
-            {warehouseResult.violation ? ' (Verletzung!)' : ''}
-          </>
-        )}
+        {warehouseResult && <>{' '}— {describeReading(warehouseResult)}</>}
       </p>
       {warehouseStatus === 'error' && <p>Lagerbedingungen melden fehlgeschlagen.</p>}
       <p>
         <button type="button" onClick={handleDefrost} disabled={defrostStatus === 'loading'}>
           {defrostStatus === 'loading' ? 'wird gemeldet...' : 'Auftauen melden'}
         </button>
-        {defrostResult && (
-          <>
-            {' '}— {defrostResult.temperatureCelsius} °C, {defrostResult.durationMinutes} min
-            {defrostResult.violation ? ' (Verletzung!)' : ''}
-          </>
-        )}
+        {defrostResult && <>{' '}— {describeReading(defrostResult)}</>}
       </p>
       {defrostStatus === 'error' && <p>Auftauen melden fehlgeschlagen.</p>}
     </div>
   )
+}
+
+function describeReading(reading: SensorReading): string {
+  return reading.violation
+    ? `Temperaturverletzung! ${reading.temperatureCelsius} °C, ${reading.durationMinutes} min`
+    : 'keine Temperaturverletzung'
 }
 
 export function BatchDocuments({
