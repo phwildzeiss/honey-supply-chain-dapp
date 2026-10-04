@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
 import { useMyBatches } from '../hooks/useMyBatches'
+import { useMyRoles } from '../hooks/useMyRoles'
 
 function MyBatches() {
   const { asHolder, asBeekeeper, isLoading } = useMyBatches()
+  const roles = useMyRoles()
 
   if (isLoading) {
     return <p>Lädt...</p>
@@ -23,15 +25,19 @@ function MyBatches() {
         <p>keine</p>
       )}
 
-      <h2>Meine Ernte (als Imker)</h2>
-      {asBeekeeper.length > 0 ? (
-        <ul>
-          {asBeekeeper.map((id) => (
-            <li key={id}><Link to={`/batches/${id}`}>Charge #{id}</Link></li>
-          ))}
-        </ul>
-      ) : (
-        <p>keine</p>
+      {roles.beekeeper && (
+        <>
+          <h2>Meine Ernte (als Imker)</h2>
+          {asBeekeeper.length > 0 ? (
+            <ul>
+              {asBeekeeper.map((id) => (
+                <li key={id}><Link to={`/batches/${id}`}>Charge #{id}</Link></li>
+              ))}
+            </ul>
+          ) : (
+            <p>keine</p>
+          )}
+        </>
       )}
     </div>
   )
