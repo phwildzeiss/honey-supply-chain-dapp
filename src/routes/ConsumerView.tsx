@@ -9,9 +9,12 @@ import {
 import { addresses } from '../addresses'
 import ActorLabel from '../components/ActorLabel'
 import { BatchDocuments } from './BatchDetail'
+import { useJarCount } from '../hooks/useJarCount'
 
-const STATES = ['Active', 'RetestRequired', 'NotSellable']
-const REASONS = ['None', 'WaterContentExceeded', 'TemperatureViolation']
+const REASON_LABELS: Record<number, string> = {
+  1: 'Wassergehalt überschritten',
+  2: 'Kühlkettenverletzung',
+}
 
 function ConsumerView() {
   const chainId = useChainId()
@@ -105,6 +108,7 @@ function ConsumerBatchDetails({
   actorRegistry: `0x${string}` | undefined
 }) {
   const [si, phqi, mci, qi, state, reason] = qualityData
+  const jarCount = useJarCount(batchId, holder)
 
   return (
     <div>
@@ -113,12 +117,19 @@ function ConsumerBatchDetails({
       <p>Imker: <ActorLabel address={batch.beekeeper} /></p>
       <p>Menge: {(Number(batch.quantity) / 1000).toFixed(1)} kg</p>
       <p>Aktueller Halter: <ActorLabel address={holder} /></p>
+      <p>Abgefüllte Gläser (500 g): {jarCount !== undefined ? jarCount.toString() : '...'}</p>
       <p>SI: {si.toString()}</p>
       <p>PHQI: {phqi.toString()}</p>
       <p>MCI: {mci.toString()}</p>
       <p>QI: {qi.toString()}</p>
-      <p>Zustand: {STATES[state]}</p>
-      <p>Grund: {REASONS[reason]}</p>
+      <p>
+        Qualitätsstatus:{' '}
+        {state === 0
+          ? 'unauffällig'
+          : state === 1
+            ? `Erneute Prüfung angefordert (${REASON_LABELS[reason]})`
+            : `Nicht verkäuflich (${REASON_LABELS[reason]})`}
+      </p>
       <p>
         Preis (500 g):{' '}
         {priceQuery.isError

@@ -20,6 +20,7 @@ import ActorLabel from '../components/ActorLabel'
 import { requestLabAnalysis, requestAward, fetchSensorReading, type SensorReading } from '../simulator'
 import { useRequestedAwards } from '../hooks/useRequestedAwards'
 import { useMyRoles } from '../hooks/useMyRoles'
+import { useJarCount } from '../hooks/useJarCount'
 
 const STATES = ['Active', 'RetestRequired', 'NotSellable']
 const REASONS = ['None', 'WaterContentExceeded', 'TemperatureViolation']
@@ -75,6 +76,7 @@ function BatchDetail() {
     args: id !== undefined ? [id, 500] : undefined,
     query: { enabled },
   })
+  const jarCount = useJarCount(id, batchData?.[1])
 
   if (!batchData || !qualityData) {
     return <p>Lädt...</p>
@@ -97,6 +99,7 @@ function BatchDetail() {
       <p>Zustand: {STATES[state]}</p>
       <p>Grund: {REASONS[reason]}</p>
       <p>Abfüllstatus: {processed ? 'abgefüllt' : 'noch nicht abgefüllt'}</p>
+      <p>Abgefüllte Gläser (500 g): {jarCount !== undefined ? jarCount.toString() : '...'}</p>
       <p>
         Wareneingang:{' '}
         {retailReceiptTimestamp
