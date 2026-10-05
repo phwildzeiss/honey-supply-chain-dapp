@@ -43,22 +43,33 @@ export async function uploadOrigin(regions: string[]): Promise<string> {
   return data.cid
 }
 
-export async function requestLabAnalysis(batchId: number): Promise<void> {
+// `timings` kommt direkt aus dem Simulator (siehe honey-supply-chain-simulator/common/StepTimings) —
+// dieselbe Phasen-Aufschlüsselung (render/upload/chain), die auch fullBatchFlow.ts nur weiterreicht.
+export type SimulatorTxResult = {
+  ipfsCid: string
+  transactionHash: `0x${string}`
+  gasUsed: number
+  timings: { renderMs: number; uploadMs: number; chainMs: number }
+}
+
+export async function requestLabAnalysis(batchId: number): Promise<SimulatorTxResult> {
   const response = await fetch(`${SIMULATOR_URL}/api/lab/analysis`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ batchId }),
   })
   if (!response.ok) throw new Error('Laboranalyse-Anfrage fehlgeschlagen.')
+  return response.json()
 }
 
-export async function requestAward(batchId: number): Promise<void> {
+export async function requestAward(batchId: number): Promise<SimulatorTxResult> {
   const response = await fetch(`${SIMULATOR_URL}/api/awards`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ batchId }),
   })
   if (!response.ok) throw new Error('Prämierungs-Anfrage fehlgeschlagen.')
+  return response.json()
 }
 
 export type SensorReading = {
@@ -76,7 +87,7 @@ export async function fetchSensorReading(kind: 'transport' | 'warehouse' | 'defr
 export async function requestCertification(
   beekeeperAddress: string,
   requested: string,
-): Promise<{ certification: string }> {
+): Promise<SimulatorTxResult & { certification: string }> {
   const response = await fetch(`${SIMULATOR_URL}/api/certifications`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

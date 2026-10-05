@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useChainId, useConnection, useWaitForTransactionReceipt } from 'wagmi'
 import {
@@ -21,6 +21,8 @@ import { requestLabAnalysis, requestAward, fetchSensorReading, type SensorReadin
 import { useRequestedAwards } from '../hooks/useRequestedAwards'
 import { useMyRoles } from '../hooks/useMyRoles'
 import { useJarCount } from '../hooks/useJarCount'
+import { recordStep, recordError, roleLabel, errorMessage } from '../measurements'
+import { useTxTiming } from '../hooks/useTxTiming'
 
 const STATES = ['Active', 'RetestRequired', 'NotSellable']
 const REASONS = ['None', 'WaterContentExceeded', 'TemperatureViolation']
@@ -51,13 +53,43 @@ function BatchDetail() {
   })
   const confirmRetailReceipt = useWriteSupplyChainRecordRetailReceipt()
   const retailReceiptTxReceipt = useWaitForTransactionReceipt({ hash: confirmRetailReceipt.data })
+  const retailReceiptTiming = useTxTiming(confirmRetailReceipt.data)
+  const retailReceiptErrorRecorded = useRef(false)
 
   useEffect(() => {
-    if (retailReceiptTxReceipt.isSuccess) refetchRetailReceiptTimestamp()
+    if (confirmRetailReceipt.isError && !retailReceiptErrorRecorded.current) {
+      retailReceiptErrorRecorded.current = true
+      recordError({
+        chainId, batchId: id, step: 'recordRetailReceipt', actor: 'retailer', address,
+        message: errorMessage(confirmRetailReceipt.error),
+      })
+    }
+  }, [confirmRetailReceipt.isError])
+
+  useEffect(() => {
+    if (!retailReceiptTxReceipt.isSuccess || !retailReceiptTxReceipt.data) return
+    refetchRetailReceiptTimestamp()
+    if (id === undefined) return
+    if (retailReceiptTxReceipt.data.status === 'reverted') {
+      recordError({
+        chainId, batchId: id, step: 'recordRetailReceipt', actor: 'retailer', address,
+        message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
+      })
+      return
+    }
+    const { walletConfirmMs, miningMs, totalMs } = retailReceiptTiming.split()
+    void recordStep({
+      chainId, batchId: id, step: 'recordRetailReceipt', actor: 'retailer', address,
+      txHash: retailReceiptTxReceipt.data.transactionHash, gasUsed: retailReceiptTxReceipt.data.gasUsed,
+      gasPriceWei: retailReceiptTxReceipt.data.effectiveGasPrice,
+      durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
+    })
   }, [retailReceiptTxReceipt.isSuccess])
 
   function handleConfirmRetailReceipt() {
     if (!id || !supplyChain) return
+    retailReceiptErrorRecorded.current = false
+    retailReceiptTiming.markSubmitted()
     confirmRetailReceipt.mutate({ address: supplyChain, args: [id] })
   }
 
@@ -186,12 +218,18 @@ function HandlingActions({
   supplyChain: `0x${string}` | undefined
   onReported: () => void
 }) {
+  const chainId = useChainId()
+  const { address } = useConnection()
+  const roles = useMyRoles()
   const recordTransport = useWriteSupplyChainRecordTransportData()
   const transportReceipt = useWaitForTransactionReceipt({ hash: recordTransport.data })
+  const transportTiming = useTxTiming(recordTransport.data)
   const recordWarehouse = useWriteSupplyChainRecordWarehouseData()
   const warehouseReceipt = useWaitForTransactionReceipt({ hash: recordWarehouse.data })
+  const warehouseTiming = useTxTiming(recordWarehouse.data)
   const recordDefrost = useWriteSupplyChainRecordWarehouseData()
   const defrostReceipt = useWaitForTransactionReceipt({ hash: recordDefrost.data })
+  const defrostTiming = useTxTiming(recordDefrost.data)
 
   const [transportStatus, setTransportStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [transportResult, setTransportResult] = useState<SensorReading | null>(null)
@@ -199,15 +237,91 @@ function HandlingActions({
   const [warehouseResult, setWarehouseResult] = useState<SensorReading | null>(null)
   const [defrostStatus, setDefrostStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [defrostResult, setDefrostResult] = useState<SensorReading | null>(null)
+  const transportErrorRecorded = useRef(false)
+  const warehouseErrorRecorded = useRef(false)
+  const defrostErrorRecorded = useRef(false)
 
   useEffect(() => {
-    if (transportReceipt.isSuccess) onReported()
+    if (recordTransport.isError && !transportErrorRecorded.current) {
+      transportErrorRecorded.current = true
+      recordError({
+        chainId, batchId, step: 'recordTransportData', actor: roleLabel(roles), address,
+        message: errorMessage(recordTransport.error),
+      })
+    }
+  }, [recordTransport.isError])
+  useEffect(() => {
+    if (recordWarehouse.isError && !warehouseErrorRecorded.current) {
+      warehouseErrorRecorded.current = true
+      recordError({
+        chainId, batchId, step: 'recordWarehouseData(lager)', actor: roleLabel(roles), address,
+        message: errorMessage(recordWarehouse.error),
+      })
+    }
+  }, [recordWarehouse.isError])
+  useEffect(() => {
+    if (recordDefrost.isError && !defrostErrorRecorded.current) {
+      defrostErrorRecorded.current = true
+      recordError({
+        chainId, batchId, step: 'recordWarehouseData(defrost)', actor: roleLabel(roles), address,
+        message: errorMessage(recordDefrost.error),
+      })
+    }
+  }, [recordDefrost.isError])
+
+  useEffect(() => {
+    if (!transportReceipt.isSuccess || !transportReceipt.data || batchId === undefined) return
+    onReported()
+    if (transportReceipt.data.status === 'reverted') {
+      recordError({
+        chainId, batchId, step: 'recordTransportData', actor: roleLabel(roles), address,
+        message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
+      })
+      return
+    }
+    const { walletConfirmMs, miningMs, totalMs } = transportTiming.split()
+    void recordStep({
+      chainId, batchId, step: 'recordTransportData', actor: roleLabel(roles), address,
+      txHash: transportReceipt.data.transactionHash, gasUsed: transportReceipt.data.gasUsed,
+      gasPriceWei: transportReceipt.data.effectiveGasPrice,
+      durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
+    })
   }, [transportReceipt.isSuccess])
   useEffect(() => {
-    if (warehouseReceipt.isSuccess) onReported()
+    if (!warehouseReceipt.isSuccess || !warehouseReceipt.data || batchId === undefined) return
+    onReported()
+    if (warehouseReceipt.data.status === 'reverted') {
+      recordError({
+        chainId, batchId, step: 'recordWarehouseData(lager)', actor: roleLabel(roles), address,
+        message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
+      })
+      return
+    }
+    const { walletConfirmMs, miningMs, totalMs } = warehouseTiming.split()
+    void recordStep({
+      chainId, batchId, step: 'recordWarehouseData(lager)', actor: roleLabel(roles), address,
+      txHash: warehouseReceipt.data.transactionHash, gasUsed: warehouseReceipt.data.gasUsed,
+      gasPriceWei: warehouseReceipt.data.effectiveGasPrice,
+      durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
+    })
   }, [warehouseReceipt.isSuccess])
   useEffect(() => {
-    if (defrostReceipt.isSuccess) onReported()
+    if (!defrostReceipt.isSuccess || !defrostReceipt.data || batchId === undefined) return
+    onReported()
+    if (defrostReceipt.data.status === 'reverted') {
+      recordError({
+        chainId, batchId, step: 'recordWarehouseData(defrost)', actor: roleLabel(roles), address,
+        message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
+      })
+      return
+    }
+    const { walletConfirmMs, miningMs, totalMs } = defrostTiming.split()
+    void recordStep({
+      chainId, batchId, step: 'recordWarehouseData(defrost)', actor: roleLabel(roles), address,
+      txHash: defrostReceipt.data.transactionHash, gasUsed: defrostReceipt.data.gasUsed,
+      gasPriceWei: defrostReceipt.data.effectiveGasPrice,
+      durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
+    })
   }, [defrostReceipt.isSuccess])
 
   async function handleTransport() {
@@ -216,13 +330,19 @@ function HandlingActions({
     try {
       const reading = await fetchSensorReading('transport')
       setTransportResult(reading)
+      transportErrorRecorded.current = false
+      transportTiming.markSubmitted()
       recordTransport.mutate({
         address: supplyChain,
         args: [batchId, BigInt(reading.temperatureCelsius), BigInt(reading.durationMinutes)],
       })
       setTransportStatus('idle')
-    } catch {
+    } catch (err) {
       setTransportStatus('error')
+      recordError({
+        chainId, batchId, step: 'recordTransportData', actor: roleLabel(roles), address,
+        message: err instanceof Error ? err.message : 'Sensordaten-Anfrage fehlgeschlagen.',
+      })
     }
   }
 
@@ -232,13 +352,19 @@ function HandlingActions({
     try {
       const reading = await fetchSensorReading('warehouse')
       setWarehouseResult(reading)
+      warehouseErrorRecorded.current = false
+      warehouseTiming.markSubmitted()
       recordWarehouse.mutate({
         address: supplyChain,
         args: [batchId, BigInt(reading.temperatureCelsius), BigInt(reading.durationMinutes)],
       })
       setWarehouseStatus('idle')
-    } catch {
+    } catch (err) {
       setWarehouseStatus('error')
+      recordError({
+        chainId, batchId, step: 'recordWarehouseData(lager)', actor: roleLabel(roles), address,
+        message: err instanceof Error ? err.message : 'Sensordaten-Anfrage fehlgeschlagen.',
+      })
     }
   }
 
@@ -248,13 +374,19 @@ function HandlingActions({
     try {
       const reading = await fetchSensorReading('defrost')
       setDefrostResult(reading)
+      defrostErrorRecorded.current = false
+      defrostTiming.markSubmitted()
       recordDefrost.mutate({
         address: supplyChain,
         args: [batchId, BigInt(reading.temperatureCelsius), BigInt(reading.durationMinutes)],
       })
       setDefrostStatus('idle')
-    } catch {
+    } catch (err) {
       setDefrostStatus('error')
+      recordError({
+        chainId, batchId, step: 'recordWarehouseData(defrost)', actor: roleLabel(roles), address,
+        message: err instanceof Error ? err.message : 'Sensordaten-Anfrage fehlgeschlagen.',
+      })
     }
   }
 
@@ -310,6 +442,7 @@ export function BatchDocuments({
   onQualityChanged: () => void
   state: number
 }) {
+  const chainId = useChainId()
   const [labStatus, setLabStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [awardStatus, setAwardStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const { isRequested, markRequested } = useRequestedAwards()
@@ -329,12 +462,22 @@ export function BatchDocuments({
     if (batchId === undefined) return
     setLabStatus('loading')
     try {
-      await requestLabAnalysis(Number(batchId))
+      const result = await requestLabAnalysis(Number(batchId))
       await refetchLabReportCid()
       onQualityChanged()
+      void recordStep({
+        chainId, batchId, step: 'labAnalysis', actor: 'lab',
+        txHash: result.transactionHash, gasUsed: BigInt(result.gasUsed),
+        durationMs: result.timings.renderMs + result.timings.uploadMs + result.timings.chainMs,
+        timings: result.timings, note: result.ipfsCid ? `cid=${result.ipfsCid}` : '',
+      })
       setLabStatus('idle')
-    } catch {
+    } catch (err) {
       setLabStatus('error')
+      recordError({
+        chainId, batchId, step: 'labAnalysis', actor: 'lab',
+        message: err instanceof Error ? err.message : 'Laboranalyse-Anfrage fehlgeschlagen.',
+      })
     }
   }
 
@@ -342,13 +485,23 @@ export function BatchDocuments({
     if (batchId === undefined) return
     setAwardStatus('loading')
     try {
-      await requestAward(Number(batchId))
+      const result = await requestAward(Number(batchId))
       await refetchAwardCertificateCid()
       markRequested(Number(batchId))
       onQualityChanged()
+      void recordStep({
+        chainId, batchId, step: 'award', actor: 'awardBody',
+        txHash: result.transactionHash, gasUsed: BigInt(result.gasUsed),
+        durationMs: result.timings.renderMs + result.timings.uploadMs + result.timings.chainMs,
+        timings: result.timings, note: result.ipfsCid ? `cid=${result.ipfsCid}` : '',
+      })
       setAwardStatus('idle')
-    } catch {
+    } catch (err) {
       setAwardStatus('error')
+      recordError({
+        chainId, batchId, step: 'award', actor: 'awardBody',
+        message: err instanceof Error ? err.message : 'Prämierungs-Anfrage fehlgeschlagen.',
+      })
     }
   }
   const { data: certificationData } = useReadActorRegistryCertifications({

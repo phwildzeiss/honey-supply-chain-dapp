@@ -4,6 +4,7 @@ import { useChainId, useConnection } from 'wagmi'
 import { useReadActorRegistryCertifications } from '../generated'
 import { addresses } from '../addresses'
 import { requestCertification } from '../simulator'
+import { recordStep, recordError } from '../measurements'
 
 const OPTIONS = [
   { value: 'NATIONAL_QUALITY_LABEL', label: 'Nationales Gütesiegel' },
@@ -43,9 +44,19 @@ function SubmitCertification() {
       const response = await requestCertification(address, requested)
       setResult(response.certification)
       await refetchCertification()
+      void recordStep({
+        chainId, batchId: undefined, step: 'certification', actor: 'certBody',
+        txHash: response.transactionHash, gasUsed: BigInt(response.gasUsed),
+        durationMs: response.timings.renderMs + response.timings.uploadMs + response.timings.chainMs,
+        timings: response.timings, note: response.ipfsCid ? `cid=${response.ipfsCid}` : '',
+      })
       setStatus('done')
-    } catch {
+    } catch (err) {
       setStatus('error')
+      recordError({
+        chainId, batchId: undefined, step: 'certification', actor: 'certBody',
+        message: err instanceof Error ? err.message : 'Zertifizierungs-Anfrage fehlgeschlagen.',
+      })
     }
   }
 

@@ -13,6 +13,7 @@ import ProcessAndBottle from './routes/ProcessAndBottle'
 import MyBatches from './routes/MyBatches'
 import ConsumerView from './routes/ConsumerView'
 import SubmitCertification from './routes/SubmitCertification'
+import MeasurementsExport from './routes/MeasurementsExport'
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
           <Route path="/batches/:batchId/bottle" element={<ProcessAndBottle />} />
           <Route path="/my-batches" element={<MyBatches />} />
           <Route path="/certification" element={<SubmitCertification />} />
+          <Route path="/measurements" element={<MeasurementsExport />} />
         </Route>
       </Routes>
     </BrowserRouter>

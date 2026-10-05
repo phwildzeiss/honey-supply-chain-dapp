@@ -1,10 +1,12 @@
-import { useEffect, useState, type SubmitEvent } from 'react'
-import { useChainId, useWaitForTransactionReceipt } from 'wagmi'
+import { useEffect, useRef, useState, type SubmitEvent } from 'react'
+import { useChainId, useConnection, useWaitForTransactionReceipt } from 'wagmi'
 import { useReadSupplyChainNextBatchId, useWriteSupplyChainRegisterHarvestBatch } from '../generated'
 import { addresses } from '../addresses'
 import { useApiaries } from '../hooks/useApiaries'
 import { useHarvest } from '../hooks/useHarvest'
 import { useBatchComposition } from '../hooks/useBatchComposition'
+import { recordStep, recordError, errorMessage } from '../measurements'
+import { useTxTiming } from '../hooks/useTxTiming'
 import { Link } from 'react-router-dom'
 
 type Row = { apiaryId: number; kg: string }
@@ -17,6 +19,7 @@ function toGrams(kg: string): number {
 
 function NewBatch() {
   const chainId = useChainId()
+  const { address } = useConnection()
   const supplyChain = addresses[chainId as keyof typeof addresses]?.SupplyChain
   const { apiaries } = useApiaries()
   const { remaining, consumeFromPool } = useHarvest()
@@ -25,17 +28,42 @@ function NewBatch() {
   const [year, setYear] = useState(new Date().getFullYear())
   const [rows, setRows] = useState<Row[]>([{ apiaryId: apiaries[0]?.id ?? 0, kg: '' }])
   const [consumed, setConsumed] = useState(false)
+  const errorRecorded = useRef(false)
 
   const { data: nextBatchId } = useReadSupplyChainNextBatchId({ address: supplyChain })
   const registerBatch = useWriteSupplyChainRegisterHarvestBatch()
   const receipt = useWaitForTransactionReceipt({ hash: registerBatch.data })
+  const timing = useTxTiming(registerBatch.data)
 
   useEffect(() => {
-    if (receipt.isSuccess && !consumed && nextBatchId !== undefined) {
-      consumeFromPool(rows.map((row) => ({ apiaryId: row.apiaryId, year, grams: toGrams(row.kg) })))
-      saveComposition(Number(nextBatchId), rows.map((row) => ({ apiaryId: row.apiaryId, grams: toGrams(row.kg) })))
-      setConsumed(true)
+    if (registerBatch.isError && !errorRecorded.current) {
+      errorRecorded.current = true
+      recordError({
+        chainId, batchId: nextBatchId, step: 'registerHarvestBatch', actor: 'beekeeper', address,
+        message: errorMessage(registerBatch.error),
+      })
     }
+  }, [registerBatch.isError])
+
+  useEffect(() => {
+    if (!receipt.isSuccess || !receipt.data || consumed) return
+    if (receipt.data.status === 'reverted') {
+      recordError({
+        chainId, batchId: nextBatchId, step: 'registerHarvestBatch', actor: 'beekeeper', address,
+        message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
+      })
+      return
+    }
+    if (nextBatchId === undefined) return
+    consumeFromPool(rows.map((row) => ({ apiaryId: row.apiaryId, year, grams: toGrams(row.kg) })))
+    saveComposition(Number(nextBatchId), rows.map((row) => ({ apiaryId: row.apiaryId, grams: toGrams(row.kg) })))
+    setConsumed(true)
+    const { walletConfirmMs, miningMs, totalMs } = timing.split()
+    void recordStep({
+      chainId, batchId: nextBatchId, step: 'registerHarvestBatch', actor: 'beekeeper', address,
+      txHash: receipt.data.transactionHash, gasUsed: receipt.data.gasUsed, gasPriceWei: receipt.data.effectiveGasPrice,
+      durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
+    })
   }, [receipt.isSuccess])
 
   function apiaryName(id: number) {
@@ -65,6 +93,8 @@ function NewBatch() {
     }
     const standIds = rows.map((row) => BigInt(row.apiaryId))
     const quantities = rows.map((row) => BigInt(toGrams(row.kg)))
+    errorRecorded.current = false
+    timing.markSubmitted()
     registerBatch.mutate({ address: supplyChain, args: [year, standIds, quantities] })
   }
 

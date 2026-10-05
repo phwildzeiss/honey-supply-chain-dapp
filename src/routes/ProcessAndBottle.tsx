@@ -1,9 +1,11 @@
-import { useState, type SubmitEvent } from 'react'
+import { useEffect, useRef, useState, type SubmitEvent } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useChainId, useConnection, useWaitForTransactionReceipt } from 'wagmi'
 import { useReadConsumerGatewayGetBatchData, useWriteSupplyChainProcessAndBottle } from '../generated'
 import { addresses } from '../addresses'
 import { useMyRoles } from '../hooks/useMyRoles'
+import { recordStep, recordError, errorMessage } from '../measurements'
+import { useTxTiming } from '../hooks/useTxTiming'
 
 const JAR_SIZE_GRAMS = 500
 
@@ -23,9 +25,38 @@ function ProcessAndBottle() {
   })
 
   const [count, setCount] = useState('')
+  const errorRecorded = useRef(false)
 
   const process = useWriteSupplyChainProcessAndBottle()
   const receipt = useWaitForTransactionReceipt({ hash: process.data })
+  const timing = useTxTiming(process.data)
+
+  useEffect(() => {
+    if (process.isError && !errorRecorded.current) {
+      errorRecorded.current = true
+      recordError({
+        chainId, batchId: id, step: 'processAndBottle', actor: 'bottler', address,
+        message: errorMessage(process.error),
+      })
+    }
+  }, [process.isError])
+
+  useEffect(() => {
+    if (!receipt.isSuccess || !receipt.data || id === undefined) return
+    if (receipt.data.status === 'reverted') {
+      recordError({
+        chainId, batchId: id, step: 'processAndBottle', actor: 'bottler', address,
+        message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
+      })
+      return
+    }
+    const { walletConfirmMs, miningMs, totalMs } = timing.split()
+    void recordStep({
+      chainId, batchId: id, step: 'processAndBottle', actor: 'bottler', address,
+      txHash: receipt.data.transactionHash, gasUsed: receipt.data.gasUsed, gasPriceWei: receipt.data.effectiveGasPrice,
+      durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
+    })
+  }, [receipt.isSuccess])
 
   if (!batchData) {
     return <p>Lädt...</p>
@@ -48,6 +79,8 @@ function ProcessAndBottle() {
       alert('Die Gläser übersteigen die verfügbare Menge.')
       return
     }
+    errorRecorded.current = false
+    timing.markSubmitted()
     process.mutate({ address: supplyChain, args: [id, [JAR_SIZE_GRAMS], [BigInt(count || '0')]] })
   }
 

@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useChainId, useWaitForTransactionReceipt } from 'wagmi'
+import { useChainId, useConnection, useWaitForTransactionReceipt } from 'wagmi'
 import { useWriteQualityIndexSubmitSiData } from '../generated'
 import { addresses } from '../addresses'
 import { useApiaries } from '../hooks/useApiaries'
 import { useBatchComposition } from '../hooks/useBatchComposition'
 import { fetchSiScores, type SiScores } from '../simulator'
+import { recordStep, recordError, errorMessage } from '../measurements'
+import { useTxTiming } from '../hooks/useTxTiming'
 
 const FIELDS = [
   'forage', 'lightIntensity', 'waterSource', 'summerTemperature',
@@ -25,18 +27,48 @@ function weightedAverage(entries: { scores: SiScores; grams: number }[]): SiScor
 function SubmitSi() {
   const { batchId } = useParams()
   const chainId = useChainId()
+  const { address } = useConnection()
   const qualityIndex = addresses[chainId as keyof typeof addresses]?.QualityIndex
   const { apiaries } = useApiaries()
   const { getComposition } = useBatchComposition()
 
   const [isCalculating, setIsCalculating] = useState(false)
   const [error, setError] = useState('')
+  const errorRecorded = useRef(false)
 
   const submitSi = useWriteQualityIndexSubmitSiData()
   const receipt = useWaitForTransactionReceipt({ hash: submitSi.data })
+  const timing = useTxTiming(submitSi.data)
 
   const id = batchId ? BigInt(batchId) : undefined
   const composition = batchId ? getComposition(Number(batchId)) : []
+
+  useEffect(() => {
+    if (submitSi.isError && !errorRecorded.current) {
+      errorRecorded.current = true
+      recordError({
+        chainId, batchId: id, step: 'submitSIData', actor: 'beekeeper', address,
+        message: errorMessage(submitSi.error),
+      })
+    }
+  }, [submitSi.isError])
+
+  useEffect(() => {
+    if (!receipt.isSuccess || !receipt.data || id === undefined) return
+    if (receipt.data.status === 'reverted') {
+      recordError({
+        chainId, batchId: id, step: 'submitSIData', actor: 'beekeeper', address,
+        message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
+      })
+      return
+    }
+    const { walletConfirmMs, miningMs, totalMs } = timing.split()
+    void recordStep({
+      chainId, batchId: id, step: 'submitSIData', actor: 'beekeeper', address,
+      txHash: receipt.data.transactionHash, gasUsed: receipt.data.gasUsed, gasPriceWei: receipt.data.effectiveGasPrice,
+      durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
+    })
+  }, [receipt.isSuccess])
 
   async function handleSubmit() {
     if (!id || !qualityIndex) return
@@ -51,9 +83,13 @@ function SubmitSi() {
           return { scores, grams: row.grams }
         }),
       )
+      errorRecorded.current = false
+      timing.markSubmitted()
       submitSi.mutate({ address: qualityIndex, args: [id, weightedAverage(entries)] })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'SI-Berechnung fehlgeschlagen.')
+      const message = err instanceof Error ? err.message : 'SI-Berechnung fehlgeschlagen.'
+      setError(message)
+      recordError({ chainId, batchId: id, step: 'submitSIData', actor: 'beekeeper', address, message })
     } finally {
       setIsCalculating(false)
     }

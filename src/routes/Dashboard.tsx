@@ -46,6 +46,7 @@ function Dashboard() {
       )}
 
       <Tile to="/my-batches" label="Meine Chargen" />
+      <Tile to="/measurements" label="Messwerte" />
 
       {roles.beekeeper && (
         <div>

@@ -1,4 +1,4 @@
-import { useEffect, useState, type SubmitEvent } from 'react'
+import { useEffect, useRef, useState, type SubmitEvent } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useChainId, useConnection, useWaitForTransactionReceipt } from 'wagmi'
 import {
@@ -9,6 +9,9 @@ import {
   useWriteSupplyChainTransferCustody,
 } from '../generated'
 import { addresses } from '../addresses'
+import { useMyRoles } from '../hooks/useMyRoles'
+import { recordStep, recordError, roleLabel, errorMessage } from '../measurements'
+import { useTxTiming } from '../hooks/useTxTiming'
 
 function TransferCustody() {
   const { batchId } = useParams()
@@ -33,17 +36,73 @@ function TransferCustody() {
   })
 
   const [selected, setSelected] = useState('')
+  const roles = useMyRoles()
+  const approveErrorRecorded = useRef(false)
+  const transferErrorRecorded = useRef(false)
 
   const approve = useWriteHoneyTokenSetApprovalForAll()
   const approveReceipt = useWaitForTransactionReceipt({ hash: approve.data })
+  const approveTiming = useTxTiming(approve.data)
   const transfer = useWriteSupplyChainTransferCustody()
   const transferReceipt = useWaitForTransactionReceipt({ hash: transfer.data })
+  const transferTiming = useTxTiming(transfer.data)
 
   useEffect(() => {
-    if (approveReceipt.isSuccess) {
-      refetchApproval()
+    if (approve.isError && !approveErrorRecorded.current) {
+      approveErrorRecorded.current = true
+      recordError({
+        chainId, batchId: id, step: 'setApprovalForAll', actor: roleLabel(roles), address,
+        message: errorMessage(approve.error),
+      })
     }
+  }, [approve.isError])
+
+  useEffect(() => {
+    if (transfer.isError && !transferErrorRecorded.current) {
+      transferErrorRecorded.current = true
+      recordError({
+        chainId, batchId: id, step: 'transferCustody', actor: roleLabel(roles), address,
+        message: errorMessage(transfer.error),
+      })
+    }
+  }, [transfer.isError])
+
+  useEffect(() => {
+    if (!approveReceipt.isSuccess || !approveReceipt.data) return
+    refetchApproval()
+    if (approveReceipt.data.status === 'reverted') {
+      recordError({
+        chainId, batchId: id, step: 'setApprovalForAll', actor: roleLabel(roles), address,
+        message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
+      })
+      return
+    }
+    const { walletConfirmMs, miningMs, totalMs } = approveTiming.split()
+    void recordStep({
+      chainId, batchId: id, step: 'setApprovalForAll', actor: roleLabel(roles), address,
+      txHash: approveReceipt.data.transactionHash, gasUsed: approveReceipt.data.gasUsed,
+      gasPriceWei: approveReceipt.data.effectiveGasPrice,
+      durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
+    })
   }, [approveReceipt.isSuccess])
+
+  useEffect(() => {
+    if (!transferReceipt.isSuccess || !transferReceipt.data) return
+    if (transferReceipt.data.status === 'reverted') {
+      recordError({
+        chainId, batchId: id, step: 'transferCustody', actor: roleLabel(roles), address,
+        message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
+      })
+      return
+    }
+    const { walletConfirmMs, miningMs, totalMs } = transferTiming.split()
+    void recordStep({
+      chainId, batchId: id, step: 'transferCustody', actor: roleLabel(roles), address,
+      txHash: transferReceipt.data.transactionHash, gasUsed: transferReceipt.data.gasUsed,
+      gasPriceWei: transferReceipt.data.effectiveGasPrice,
+      durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
+    })
+  }, [transferReceipt.isSuccess])
 
   if (!batchData || !actorsData) {
     return <p>Lädt...</p>
@@ -57,12 +116,16 @@ function TransferCustody() {
 
   function handleApprove() {
     if (!supplyChain) return
+    approveErrorRecorded.current = false
+    approveTiming.markSubmitted()
     approve.mutate({ address: honeyToken, args: [supplyChain, true] })
   }
 
   function handleTransfer(event: SubmitEvent) {
     event.preventDefault()
     if (!id || !supplyChain || !selected) return
+    transferErrorRecorded.current = false
+    transferTiming.markSubmitted()
     transfer.mutate({ address: supplyChain, args: [id, selected as `0x${string}`] })
   }
 
