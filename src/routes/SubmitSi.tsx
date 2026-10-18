@@ -8,6 +8,7 @@ import { useBatchComposition } from '../hooks/useBatchComposition'
 import { fetchSiScores, type SiScores } from '../simulator'
 import { recordStep, recordError, errorMessage } from '../measurements'
 import { useTxTiming } from '../hooks/useTxTiming'
+import { getFreshNonce } from '../nonce'
 
 const FIELDS = [
   'forage', 'lightIntensity', 'waterSource', 'summerTemperature',
@@ -85,7 +86,8 @@ function SubmitSi() {
       )
       errorRecorded.current = false
       timing.markSubmitted()
-      submitSi.mutate({ address: qualityIndex, args: [id, weightedAverage(entries)] })
+      const nonce = await getFreshNonce(address as `0x${string}` | undefined)
+      submitSi.mutate({ address: qualityIndex, args: [id, weightedAverage(entries)], nonce })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'SI-Berechnung fehlgeschlagen.'
       setError(message)

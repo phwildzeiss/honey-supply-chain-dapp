@@ -52,21 +52,30 @@ export type SimulatorTxResult = {
   timings: { renderMs: number; uploadMs: number; chainMs: number }
 }
 
-export async function requestLabAnalysis(batchId: number): Promise<SimulatorTxResult> {
+// Für die Fallstudie: `force` erzwingt einen bestimmten Ausgang statt der sonst zufälligen,
+// realistischen Ziehung (gleiche Parameter wie fullBatchFlow.ts im Contracts-Repo sie schon für die
+// automatisierten Läufe nutzt) — z. B. um gezielt ein Gatekeeper- oder Temperaturverletzungs-Szenario
+// zu zeigen, ohne auf die konfigurierte Zufallswahrscheinlichkeit angewiesen zu sein. `undefined`
+// lässt den Simulator wie bisher zufällig würfeln.
+export type LabForce = 'NORMAL' | 'PREMIUM' | 'STANDARD' | 'GATEKEEPER' | 'PHQI_EXCLUDED'
+export type AwardForce = 'NONE' | 'BRONZE' | 'SILVER' | 'GOLD'
+export type SensorForce = 'NORMAL' | 'VIOLATION'
+
+export async function requestLabAnalysis(batchId: number, force?: LabForce): Promise<SimulatorTxResult> {
   const response = await fetch(`${SIMULATOR_URL}/api/lab/analysis`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ batchId }),
+    body: JSON.stringify({ batchId, force }),
   })
   if (!response.ok) throw new Error('Laboranalyse-Anfrage fehlgeschlagen.')
   return response.json()
 }
 
-export async function requestAward(batchId: number): Promise<SimulatorTxResult> {
+export async function requestAward(batchId: number, force?: AwardForce): Promise<SimulatorTxResult> {
   const response = await fetch(`${SIMULATOR_URL}/api/awards`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ batchId }),
+    body: JSON.stringify({ batchId, force }),
   })
   if (!response.ok) throw new Error('Prämierungs-Anfrage fehlgeschlagen.')
   return response.json()
@@ -78,8 +87,13 @@ export type SensorReading = {
   violation: boolean
 }
 
-export async function fetchSensorReading(kind: 'transport' | 'warehouse' | 'defrost'): Promise<SensorReading> {
-  const response = await fetch(`${SIMULATOR_URL}/api/sensors/${kind}`, { method: 'POST' })
+export async function fetchSensorReading(
+  kind: 'transport' | 'warehouse' | 'defrost',
+  force?: SensorForce,
+): Promise<SensorReading> {
+  const url = new URL(`${SIMULATOR_URL}/api/sensors/${kind}`)
+  if (force) url.searchParams.set('force', force)
+  const response = await fetch(url, { method: 'POST' })
   if (!response.ok) throw new Error('Sensordaten-Anfrage fehlgeschlagen.')
   return response.json()
 }

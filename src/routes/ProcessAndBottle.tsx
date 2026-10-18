@@ -6,6 +6,7 @@ import { addresses } from '../addresses'
 import { useMyRoles } from '../hooks/useMyRoles'
 import { recordStep, recordError, errorMessage } from '../measurements'
 import { useTxTiming } from '../hooks/useTxTiming'
+import { getFreshNonce } from '../nonce'
 
 const JAR_SIZE_GRAMS = 500
 
@@ -72,7 +73,7 @@ function ProcessAndBottle() {
   const totalGrams = (Number(count) || 0) * JAR_SIZE_GRAMS
   const remaining = Number(batch.quantity) - totalGrams
 
-  function handleSubmit(event: SubmitEvent) {
+  async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     if (!id || !supplyChain) return
     if (totalGrams > Number(batch.quantity)) {
@@ -81,7 +82,8 @@ function ProcessAndBottle() {
     }
     errorRecorded.current = false
     timing.markSubmitted()
-    process.mutate({ address: supplyChain, args: [id, [JAR_SIZE_GRAMS], [BigInt(count || '0')]] })
+    const nonce = await getFreshNonce(address as `0x${string}` | undefined)
+    process.mutate({ address: supplyChain, args: [id, [JAR_SIZE_GRAMS], [BigInt(count || '0')]], nonce })
   }
 
   if (receipt.isSuccess) {

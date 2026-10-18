@@ -7,6 +7,7 @@ import { useHarvest } from '../hooks/useHarvest'
 import { useBatchComposition } from '../hooks/useBatchComposition'
 import { recordStep, recordError, errorMessage } from '../measurements'
 import { useTxTiming } from '../hooks/useTxTiming'
+import { getFreshNonce } from '../nonce'
 import { Link } from 'react-router-dom'
 
 type Row = { apiaryId: number; kg: string }
@@ -82,7 +83,7 @@ function NewBatch() {
     setRows(rows.filter((_, i) => i !== index))
   }
 
-  function handleSubmit(event: SubmitEvent) {
+  async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     if (!supplyChain) return
     for (const row of rows) {
@@ -95,7 +96,8 @@ function NewBatch() {
     const quantities = rows.map((row) => BigInt(toGrams(row.kg)))
     errorRecorded.current = false
     timing.markSubmitted()
-    registerBatch.mutate({ address: supplyChain, args: [year, standIds, quantities] })
+    const nonce = await getFreshNonce(address as `0x${string}` | undefined)
+    registerBatch.mutate({ address: supplyChain, args: [year, standIds, quantities], nonce })
   }
 
   if (apiaries.length === 0) {

@@ -12,6 +12,7 @@ import { addresses } from '../addresses'
 import { useMyRoles } from '../hooks/useMyRoles'
 import { recordStep, recordError, roleLabel, errorMessage } from '../measurements'
 import { useTxTiming } from '../hooks/useTxTiming'
+import { getFreshNonce } from '../nonce'
 
 function TransferCustody() {
   const { batchId } = useParams()
@@ -114,19 +115,21 @@ function TransferCustody() {
     .map((addr, i) => ({ address: addr, name: actorList[i].name }))
     .filter((actor) => actor.address.toLowerCase() !== holder.toLowerCase())
 
-  function handleApprove() {
+  async function handleApprove() {
     if (!supplyChain) return
     approveErrorRecorded.current = false
     approveTiming.markSubmitted()
-    approve.mutate({ address: honeyToken, args: [supplyChain, true] })
+    const nonce = await getFreshNonce(address as `0x${string}` | undefined)
+    approve.mutate({ address: honeyToken, args: [supplyChain, true], nonce })
   }
 
-  function handleTransfer(event: SubmitEvent) {
+  async function handleTransfer(event: SubmitEvent) {
     event.preventDefault()
     if (!id || !supplyChain || !selected) return
     transferErrorRecorded.current = false
     transferTiming.markSubmitted()
-    transfer.mutate({ address: supplyChain, args: [id, selected as `0x${string}`] })
+    const nonce = await getFreshNonce(address as `0x${string}` | undefined)
+    transfer.mutate({ address: supplyChain, args: [id, selected as `0x${string}`], nonce })
   }
 
   if (transferReceipt.isSuccess) {

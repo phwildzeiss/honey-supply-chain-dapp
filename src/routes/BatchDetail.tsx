@@ -17,12 +17,16 @@ import {
 } from '../generated'
 import { addresses } from '../addresses'
 import ActorLabel from '../components/ActorLabel'
-import { requestLabAnalysis, requestAward, fetchSensorReading, type SensorReading } from '../simulator'
+import {
+  requestLabAnalysis, requestAward, fetchSensorReading,
+  type SensorReading, type SensorForce, type LabForce, type AwardForce,
+} from '../simulator'
 import { useRequestedAwards } from '../hooks/useRequestedAwards'
 import { useMyRoles } from '../hooks/useMyRoles'
 import { useJarCount } from '../hooks/useJarCount'
 import { recordStep, recordError, roleLabel, errorMessage } from '../measurements'
 import { useTxTiming } from '../hooks/useTxTiming'
+import { getFreshNonce } from '../nonce'
 
 const STATES = ['Active', 'RetestRequired', 'NotSellable']
 const REASONS = ['None', 'WaterContentExceeded', 'TemperatureViolation']
@@ -86,11 +90,12 @@ function BatchDetail() {
     })
   }, [retailReceiptTxReceipt.isSuccess])
 
-  function handleConfirmRetailReceipt() {
+  async function handleConfirmRetailReceipt() {
     if (!id || !supplyChain) return
     retailReceiptErrorRecorded.current = false
     retailReceiptTiming.markSubmitted()
-    confirmRetailReceipt.mutate({ address: supplyChain, args: [id] })
+    const nonce = await getFreshNonce(address as `0x${string}` | undefined)
+    confirmRetailReceipt.mutate({ address: supplyChain, args: [id], nonce })
   }
 
   const { data: batchData } = useReadConsumerGatewayGetBatchData({
@@ -233,10 +238,13 @@ function HandlingActions({
 
   const [transportStatus, setTransportStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [transportResult, setTransportResult] = useState<SensorReading | null>(null)
+  const [transportForce, setTransportForce] = useState<SensorForce | ''>('')
   const [warehouseStatus, setWarehouseStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [warehouseResult, setWarehouseResult] = useState<SensorReading | null>(null)
+  const [warehouseForce, setWarehouseForce] = useState<SensorForce | ''>('')
   const [defrostStatus, setDefrostStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [defrostResult, setDefrostResult] = useState<SensorReading | null>(null)
+  const [defrostForce, setDefrostForce] = useState<SensorForce | ''>('')
   const transportErrorRecorded = useRef(false)
   const warehouseErrorRecorded = useRef(false)
   const defrostErrorRecorded = useRef(false)
@@ -328,13 +336,15 @@ function HandlingActions({
     if (batchId === undefined || !supplyChain) return
     setTransportStatus('loading')
     try {
-      const reading = await fetchSensorReading('transport')
+      const reading = await fetchSensorReading('transport', transportForce || undefined)
       setTransportResult(reading)
       transportErrorRecorded.current = false
       transportTiming.markSubmitted()
+      const nonce = await getFreshNonce(address as `0x${string}` | undefined)
       recordTransport.mutate({
         address: supplyChain,
         args: [batchId, BigInt(reading.temperatureCelsius), BigInt(reading.durationMinutes)],
+        nonce,
       })
       setTransportStatus('idle')
     } catch (err) {
@@ -350,13 +360,15 @@ function HandlingActions({
     if (batchId === undefined || !supplyChain) return
     setWarehouseStatus('loading')
     try {
-      const reading = await fetchSensorReading('warehouse')
+      const reading = await fetchSensorReading('warehouse', warehouseForce || undefined)
       setWarehouseResult(reading)
       warehouseErrorRecorded.current = false
       warehouseTiming.markSubmitted()
+      const nonce = await getFreshNonce(address as `0x${string}` | undefined)
       recordWarehouse.mutate({
         address: supplyChain,
         args: [batchId, BigInt(reading.temperatureCelsius), BigInt(reading.durationMinutes)],
+        nonce,
       })
       setWarehouseStatus('idle')
     } catch (err) {
@@ -372,13 +384,15 @@ function HandlingActions({
     if (batchId === undefined || !supplyChain) return
     setDefrostStatus('loading')
     try {
-      const reading = await fetchSensorReading('defrost')
+      const reading = await fetchSensorReading('defrost', defrostForce || undefined)
       setDefrostResult(reading)
       defrostErrorRecorded.current = false
       defrostTiming.markSubmitted()
+      const nonce = await getFreshNonce(address as `0x${string}` | undefined)
       recordDefrost.mutate({
         address: supplyChain,
         args: [batchId, BigInt(reading.temperatureCelsius), BigInt(reading.durationMinutes)],
+        nonce,
       })
       setDefrostStatus('idle')
     } catch (err) {
@@ -393,24 +407,39 @@ function HandlingActions({
   return (
     <div>
       <p>
+        <select value={transportForce} onChange={(e) => setTransportForce(e.target.value as SensorForce | '')}>
+          <option value="">Zufällig</option>
+          <option value="NORMAL">Normal erzwingen</option>
+          <option value="VIOLATION">Verletzung erzwingen</option>
+        </select>
         <button type="button" onClick={handleTransport} disabled={transportStatus === 'loading'}>
           {transportStatus === 'loading' ? 'wird gemeldet...' : 'Transportbedingungen melden'}
         </button>
-        {transportResult && <>{' '}— {describeReading(transportResult)}</>}
+        {transportResult && <span className="reading-result"> — {describeReading(transportResult)}</span>}
       </p>
       {transportStatus === 'error' && <p>Transportbedingungen melden fehlgeschlagen.</p>}
       <p>
+        <select value={warehouseForce} onChange={(e) => setWarehouseForce(e.target.value as SensorForce | '')}>
+          <option value="">Zufällig</option>
+          <option value="NORMAL">Normal erzwingen</option>
+          <option value="VIOLATION">Verletzung erzwingen</option>
+        </select>
         <button type="button" onClick={handleWarehouse} disabled={warehouseStatus === 'loading'}>
           {warehouseStatus === 'loading' ? 'wird gemeldet...' : 'Lagerbedingungen melden'}
         </button>
-        {warehouseResult && <>{' '}— {describeReading(warehouseResult)}</>}
+        {warehouseResult && <span className="reading-result"> — {describeReading(warehouseResult)}</span>}
       </p>
       {warehouseStatus === 'error' && <p>Lagerbedingungen melden fehlgeschlagen.</p>}
       <p>
+        <select value={defrostForce} onChange={(e) => setDefrostForce(e.target.value as SensorForce | '')}>
+          <option value="">Zufällig</option>
+          <option value="NORMAL">Normal erzwingen</option>
+          <option value="VIOLATION">Verletzung erzwingen</option>
+        </select>
         <button type="button" onClick={handleDefrost} disabled={defrostStatus === 'loading'}>
           {defrostStatus === 'loading' ? 'wird gemeldet...' : 'Auftauen melden'}
         </button>
-        {defrostResult && <>{' '}— {describeReading(defrostResult)}</>}
+        {defrostResult && <span className="reading-result"> — {describeReading(defrostResult)}</span>}
       </p>
       {defrostStatus === 'error' && <p>Auftauen melden fehlgeschlagen.</p>}
     </div>
@@ -444,7 +473,9 @@ export function BatchDocuments({
 }) {
   const chainId = useChainId()
   const [labStatus, setLabStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [labForce, setLabForce] = useState<LabForce | ''>('')
   const [awardStatus, setAwardStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [awardForce, setAwardForce] = useState<AwardForce | ''>('')
   const { isRequested, markRequested } = useRequestedAwards()
 
   const { data: labReportCid, refetch: refetchLabReportCid } = useReadQualityIndexPhqiReportCid({
@@ -462,7 +493,7 @@ export function BatchDocuments({
     if (batchId === undefined) return
     setLabStatus('loading')
     try {
-      const result = await requestLabAnalysis(Number(batchId))
+      const result = await requestLabAnalysis(Number(batchId), labForce || undefined)
       await refetchLabReportCid()
       onQualityChanged()
       void recordStep({
@@ -485,7 +516,7 @@ export function BatchDocuments({
     if (batchId === undefined) return
     setAwardStatus('loading')
     try {
-      const result = await requestAward(Number(batchId))
+      const result = await requestAward(Number(batchId), awardForce || undefined)
       await refetchAwardCertificateCid()
       markRequested(Number(batchId))
       onQualityChanged()
@@ -540,6 +571,13 @@ export function BatchDocuments({
         {canRequestLab && (!labReportCid || state === 1) && (
           <>
             {' '}
+            <select value={labForce} onChange={(e) => setLabForce(e.target.value as LabForce | '')}>
+              <option value="">Zufällig</option>
+              <option value="PREMIUM">Premium erzwingen</option>
+              <option value="STANDARD">Standard erzwingen</option>
+              <option value="GATEKEEPER">Gatekeeper erzwingen (nicht verkäuflich)</option>
+              <option value="PHQI_EXCLUDED">PHQI ausgeschlossen erzwingen</option>
+            </select>
             <button type="button" onClick={handleRequestLab} disabled={labStatus === 'loading'}>
               {labStatus === 'loading' ? 'wird angefordert...' : 'anfordern'}
             </button>
@@ -561,6 +599,13 @@ export function BatchDocuments({
         {isBeekeeperOfThisBatch && !awardCertificateCid && !(batchId !== undefined && isRequested(Number(batchId))) && (
           <>
             {' '}
+            <select value={awardForce} onChange={(e) => setAwardForce(e.target.value as AwardForce | '')}>
+              <option value="">Zufällig</option>
+              <option value="NONE">Keine erzwingen</option>
+              <option value="BRONZE">Bronze erzwingen</option>
+              <option value="SILVER">Silber erzwingen</option>
+              <option value="GOLD">Gold erzwingen</option>
+            </select>
             <button type="button" onClick={handleRequestAward} disabled={awardStatus === 'loading'}>
               {awardStatus === 'loading' ? 'wird angefordert...' : 'anfordern'}
             </button>

@@ -8,6 +8,7 @@ import { useBatchComposition } from '../hooks/useBatchComposition'
 import { fetchRegionScore, uploadOrigin } from '../simulator'
 import { recordStep, recordError, errorMessage } from '../measurements'
 import { useTxTiming } from '../hooks/useTxTiming'
+import { getFreshNonce } from '../nonce'
 
 const REGIONS = [
   { value: 'EU_NON_EU_MIX', label: 'EU- und Nicht-EU-Mix' },
@@ -25,12 +26,16 @@ function SubmitOrigin() {
   const { getComposition } = useBatchComposition()
 
   const [region, setRegion] = useState(REGIONS[0].value)
-  const [phase, setPhase] = useState<'form' | 'waitingRegion' | 'waitingOrigin' | 'done'>('form')
+  const [phase, setPhase] = useState<'form' | 'waitingRegion' | 'waitingOrigin' | 'retryOrigin' | 'done'>('form')
   const [error, setError] = useState('')
   const uploadMsRef = useRef(0)
   const uploadedCidRef = useRef('')
   const regionErrorRecorded = useRef(false)
   const originErrorRecorded = useRef(false)
+  // Schützt vor React StrictMode, das Effekte im Dev-Modus absichtlich doppelt ausführt: Ohne diese
+  // Sperre würde der Effekt unten `submitOriginTx.mutate(...)` zweimal auslösen — die zweite
+  // Transaktion kommt dann mit einer bereits verbrauchten Nonce beim Wallet an ("Nonce too low").
+  const originUploadTriggered = useRef(false)
 
   const submitRegion = useWriteQualityIndexSubmitMciOriginData()
   const regionReceipt = useWaitForTransactionReceipt({ hash: submitRegion.data })
@@ -54,6 +59,10 @@ function SubmitOrigin() {
         chainId, batchId: id, step: 'submitMCIOriginData', actor: 'beekeeper', address,
         message: errorMessage(submitRegion.error),
       })
+      // Sonst bleibt der Button für immer bei "Wird eingereicht..." hängen — zurück zum Formular,
+      // damit ohne Neuladen der Seite ein neuer Versuch möglich ist.
+      setError(errorMessage(submitRegion.error))
+      setPhase('form')
     }
   }, [submitRegion.isError])
 
@@ -64,11 +73,18 @@ function SubmitOrigin() {
         chainId, batchId: id, step: 'submitOrigin', actor: 'beekeeper', address,
         message: errorMessage(submitOriginTx.error),
       })
+      // Schritt 1 (Eignungsstufe) ist zu diesem Zeitpunkt schon auf der Chain — zurück zum Formular
+      // würde ihn nochmal einreichen. Stattdessen bei "waitingOrigin" stehen bleiben, aber den Button
+      // wieder freigeben, damit die zweite Transaktion erneut versucht werden kann.
+      setError(errorMessage(submitOriginTx.error))
+      setPhase('retryOrigin')
     }
   }, [submitOriginTx.isError])
 
   useEffect(() => {
     if (phase !== 'waitingRegion' || !regionReceipt.isSuccess || !regionReceipt.data || !id || !qualityIndex) return
+    if (originUploadTriggered.current) return
+    originUploadTriggered.current = true
     if (regionReceipt.data.status === 'reverted') {
       recordError({
         chainId, batchId: id, step: 'submitMCIOriginData', actor: 'beekeeper', address,
@@ -85,12 +101,13 @@ function SubmitOrigin() {
     })
     const uploadStartedAt = performance.now()
     uploadOrigin(placeNames)
-      .then((cid) => {
+      .then(async (cid) => {
         uploadMsRef.current = Math.round(performance.now() - uploadStartedAt)
         uploadedCidRef.current = cid
         originErrorRecorded.current = false
         originTiming.markSubmitted()
-        submitOriginTx.mutate({ address: qualityIndex, args: [id, cid] })
+        const nonce = await getFreshNonce(address as `0x${string}` | undefined)
+        submitOriginTx.mutate({ address: qualityIndex, args: [id, cid], nonce })
         setPhase('waitingOrigin')
       })
       .catch((err) => {
@@ -132,14 +149,28 @@ function SubmitOrigin() {
     try {
       const score = await fetchRegionScore(region)
       regionErrorRecorded.current = false
+      originUploadTriggered.current = false
       regionTiming.markSubmitted()
-      submitRegion.mutate({ address: qualityIndex, args: [id, score] })
+      const nonce = await getFreshNonce(address as `0x${string}` | undefined)
+      submitRegion.mutate({ address: qualityIndex, args: [id, score], nonce })
       setPhase('waitingRegion')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Abfrage der Region beim Simulator ist fehlgeschlagen.'
       setError(message)
       recordError({ chainId, batchId: id, step: 'submitMCIOriginData', actor: 'beekeeper', address, message })
     }
+  }
+
+  // Schritt 1 ist schon auf der Chain, der CID-Upload ist schon passiert — nur die zweite
+  // Transaktion nochmal mit einer frisch vom Node geholten Nonce abschicken.
+  async function handleRetryOrigin() {
+    if (!id || !qualityIndex || !uploadedCidRef.current) return
+    setError('')
+    originErrorRecorded.current = false
+    originTiming.markSubmitted()
+    const nonce = await getFreshNonce(address as `0x${string}` | undefined)
+    submitOriginTx.mutate({ address: qualityIndex, args: [id, uploadedCidRef.current], nonce })
+    setPhase('waitingOrigin')
   }
 
   if (!batchId) return <p>Lädt...</p>
@@ -149,6 +180,17 @@ function SubmitOrigin() {
       <div>
         <p>Herkunft wurde eingetragen.</p>
         <Link to={`/batches/${batchId}`} className="tile">Zur Charge</Link>
+      </div>
+    )
+  }
+
+  if (phase === 'retryOrigin') {
+    return (
+      <div>
+        <h1>Herkunft eintragen — Charge #{batchId}</h1>
+        <p>Die Eignungsstufe wurde bereits eingereicht. Das Hochladen der Herkunftsangabe ist fehlgeschlagen.</p>
+        {error && <p>{error}</p>}
+        <button type="button" onClick={handleRetryOrigin}>Erneut versuchen</button>
       </div>
     )
   }

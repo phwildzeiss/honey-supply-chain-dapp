@@ -32,7 +32,7 @@ body {
 }
 
 #root {
-  max-width: 720px;
+  max-width: 800px;
   margin: 0 auto;
   min-height: 100svh;
   padding: 0 1.25rem 3rem;
@@ -97,6 +97,16 @@ input, select {
   border: 1px solid var(--border);
   border-radius: 4px;
   font: inherit;
+}
+
+select {
+  background: var(--accent-bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+select:hover:not(:disabled) {
+  border-color: var(--accent);
 }
 
 button {
@@ -171,4 +181,8 @@ th, td {
 th {
   color: var(--text-muted);
   font-weight: 600;
+}
+
+.reading-result {
+  white-space: nowrap;
 }
