@@ -27,6 +27,7 @@ import { useJarCount } from '../hooks/useJarCount'
 import { recordStep, recordError, roleLabel, errorMessage } from '../measurements'
 import { useTxTiming } from '../hooks/useTxTiming'
 import { getFreshNonce } from '../nonce'
+import { useActiveScenario } from '../scenario'
 
 const STATES = ['Active', 'RetestRequired', 'NotSellable']
 const REASONS = ['None', 'WaterContentExceeded', 'TemperatureViolation']
@@ -226,6 +227,7 @@ function HandlingActions({
   const chainId = useChainId()
   const { address } = useConnection()
   const roles = useMyRoles()
+  const { isDev } = useActiveScenario()
   const recordTransport = useWriteSupplyChainRecordTransportData()
   const transportReceipt = useWaitForTransactionReceipt({ hash: recordTransport.data })
   const transportTiming = useTxTiming(recordTransport.data)
@@ -336,7 +338,7 @@ function HandlingActions({
     if (batchId === undefined || !supplyChain) return
     setTransportStatus('loading')
     try {
-      const reading = await fetchSensorReading('transport', transportForce || undefined)
+      const reading = await fetchSensorReading('transport', isDev ? (transportForce || undefined) : undefined)
       setTransportResult(reading)
       transportErrorRecorded.current = false
       transportTiming.markSubmitted()
@@ -360,7 +362,7 @@ function HandlingActions({
     if (batchId === undefined || !supplyChain) return
     setWarehouseStatus('loading')
     try {
-      const reading = await fetchSensorReading('warehouse', warehouseForce || undefined)
+      const reading = await fetchSensorReading('warehouse', isDev ? (warehouseForce || undefined) : undefined)
       setWarehouseResult(reading)
       warehouseErrorRecorded.current = false
       warehouseTiming.markSubmitted()
@@ -384,7 +386,7 @@ function HandlingActions({
     if (batchId === undefined || !supplyChain) return
     setDefrostStatus('loading')
     try {
-      const reading = await fetchSensorReading('defrost', defrostForce || undefined)
+      const reading = await fetchSensorReading('defrost', isDev ? (defrostForce || undefined) : undefined)
       setDefrostResult(reading)
       defrostErrorRecorded.current = false
       defrostTiming.markSubmitted()
@@ -407,11 +409,13 @@ function HandlingActions({
   return (
     <div>
       <p>
-        <select value={transportForce} onChange={(e) => setTransportForce(e.target.value as SensorForce | '')}>
-          <option value="">Zufällig</option>
-          <option value="NORMAL">Normal erzwingen</option>
-          <option value="VIOLATION">Verletzung erzwingen</option>
-        </select>
+        {isDev && (
+          <select value={transportForce} onChange={(e) => setTransportForce(e.target.value as SensorForce | '')}>
+            <option value="">Zufällig</option>
+            <option value="NORMAL">Normal erzwingen</option>
+            <option value="VIOLATION">Verletzung erzwingen</option>
+          </select>
+        )}
         <button type="button" onClick={handleTransport} disabled={transportStatus === 'loading'}>
           {transportStatus === 'loading' ? 'wird gemeldet...' : 'Transportbedingungen melden'}
         </button>
@@ -419,11 +423,13 @@ function HandlingActions({
       </p>
       {transportStatus === 'error' && <p>Transportbedingungen melden fehlgeschlagen.</p>}
       <p>
-        <select value={warehouseForce} onChange={(e) => setWarehouseForce(e.target.value as SensorForce | '')}>
-          <option value="">Zufällig</option>
-          <option value="NORMAL">Normal erzwingen</option>
-          <option value="VIOLATION">Verletzung erzwingen</option>
-        </select>
+        {isDev && (
+          <select value={warehouseForce} onChange={(e) => setWarehouseForce(e.target.value as SensorForce | '')}>
+            <option value="">Zufällig</option>
+            <option value="NORMAL">Normal erzwingen</option>
+            <option value="VIOLATION">Verletzung erzwingen</option>
+          </select>
+        )}
         <button type="button" onClick={handleWarehouse} disabled={warehouseStatus === 'loading'}>
           {warehouseStatus === 'loading' ? 'wird gemeldet...' : 'Lagerbedingungen melden'}
         </button>
@@ -431,11 +437,13 @@ function HandlingActions({
       </p>
       {warehouseStatus === 'error' && <p>Lagerbedingungen melden fehlgeschlagen.</p>}
       <p>
-        <select value={defrostForce} onChange={(e) => setDefrostForce(e.target.value as SensorForce | '')}>
-          <option value="">Zufällig</option>
-          <option value="NORMAL">Normal erzwingen</option>
-          <option value="VIOLATION">Verletzung erzwingen</option>
-        </select>
+        {isDev && (
+          <select value={defrostForce} onChange={(e) => setDefrostForce(e.target.value as SensorForce | '')}>
+            <option value="">Zufällig</option>
+            <option value="NORMAL">Normal erzwingen</option>
+            <option value="VIOLATION">Verletzung erzwingen</option>
+          </select>
+        )}
         <button type="button" onClick={handleDefrost} disabled={defrostStatus === 'loading'}>
           {defrostStatus === 'loading' ? 'wird gemeldet...' : 'Auftauen melden'}
         </button>
@@ -472,6 +480,7 @@ export function BatchDocuments({
   state: number
 }) {
   const chainId = useChainId()
+  const { isDev, scenario } = useActiveScenario()
   const [labStatus, setLabStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [labForce, setLabForce] = useState<LabForce | ''>('')
   const [awardStatus, setAwardStatus] = useState<'idle' | 'loading' | 'error'>('idle')
@@ -493,7 +502,7 @@ export function BatchDocuments({
     if (batchId === undefined) return
     setLabStatus('loading')
     try {
-      const result = await requestLabAnalysis(Number(batchId), labForce || undefined)
+      const result = await requestLabAnalysis(Number(batchId), isDev ? (labForce || undefined) : scenario.force.lab)
       await refetchLabReportCid()
       onQualityChanged()
       void recordStep({
@@ -516,7 +525,7 @@ export function BatchDocuments({
     if (batchId === undefined) return
     setAwardStatus('loading')
     try {
-      const result = await requestAward(Number(batchId), awardForce || undefined)
+      const result = await requestAward(Number(batchId), isDev ? (awardForce || undefined) : scenario.force.award)
       await refetchAwardCertificateCid()
       markRequested(Number(batchId))
       onQualityChanged()
@@ -571,13 +580,15 @@ export function BatchDocuments({
         {canRequestLab && (!labReportCid || state === 1) && (
           <>
             {' '}
-            <select value={labForce} onChange={(e) => setLabForce(e.target.value as LabForce | '')}>
-              <option value="">Zufällig</option>
-              <option value="PREMIUM">Premium erzwingen</option>
-              <option value="STANDARD">Standard erzwingen</option>
-              <option value="GATEKEEPER">Gatekeeper erzwingen (nicht verkäuflich)</option>
-              <option value="PHQI_EXCLUDED">PHQI ausgeschlossen erzwingen</option>
-            </select>
+            {isDev && (
+              <select value={labForce} onChange={(e) => setLabForce(e.target.value as LabForce | '')}>
+                <option value="">Zufällig</option>
+                <option value="PREMIUM">Premium erzwingen</option>
+                <option value="STANDARD">Standard erzwingen</option>
+                <option value="GATEKEEPER">Gatekeeper erzwingen (nicht verkäuflich)</option>
+                <option value="PHQI_EXCLUDED">PHQI ausgeschlossen erzwingen</option>
+              </select>
+            )}
             <button type="button" onClick={handleRequestLab} disabled={labStatus === 'loading'}>
               {labStatus === 'loading' ? 'wird angefordert...' : 'anfordern'}
             </button>
@@ -599,13 +610,15 @@ export function BatchDocuments({
         {isBeekeeperOfThisBatch && !awardCertificateCid && !(batchId !== undefined && isRequested(Number(batchId))) && (
           <>
             {' '}
-            <select value={awardForce} onChange={(e) => setAwardForce(e.target.value as AwardForce | '')}>
-              <option value="">Zufällig</option>
-              <option value="NONE">Keine erzwingen</option>
-              <option value="BRONZE">Bronze erzwingen</option>
-              <option value="SILVER">Silber erzwingen</option>
-              <option value="GOLD">Gold erzwingen</option>
-            </select>
+            {isDev && (
+              <select value={awardForce} onChange={(e) => setAwardForce(e.target.value as AwardForce | '')}>
+                <option value="">Zufällig</option>
+                <option value="NONE">Keine erzwingen</option>
+                <option value="BRONZE">Bronze erzwingen</option>
+                <option value="SILVER">Silber erzwingen</option>
+                <option value="GOLD">Gold erzwingen</option>
+              </select>
+            )}
             <button type="button" onClick={handleRequestAward} disabled={awardStatus === 'loading'}>
               {awardStatus === 'loading' ? 'wird angefordert...' : 'anfordern'}
             </button>

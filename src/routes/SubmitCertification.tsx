@@ -5,6 +5,7 @@ import { useReadActorRegistryCertifications } from '../generated'
 import { addresses } from '../addresses'
 import { requestCertification } from '../simulator'
 import { recordStep, recordError } from '../measurements'
+import { useActiveScenario, useCertificationReset } from '../scenario'
 
 const OPTIONS = [
   { value: 'NATIONAL_QUALITY_LABEL', label: 'Nationales Gütesiegel' },
@@ -28,6 +29,9 @@ function SubmitCertification() {
   const [requested, setRequested] = useState(OPTIONS[0].value)
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const [result, setResult] = useState('')
+  const { id: scenarioId, scenario } = useActiveScenario()
+  const isRealScenario = scenarioId !== 'normal' && scenarioId !== 'entwicklung'
+  const force = isRealScenario && requested === scenario.force.certification ? scenario.force.certification : undefined
 
   const { data: certificationData, refetch: refetchCertification } = useReadActorRegistryCertifications({
     address: actorRegistry,
@@ -35,13 +39,17 @@ function SubmitCertification() {
     query: { enabled: Boolean(actorRegistry && address) },
   })
   const [currentCid, currentScore] = certificationData ?? ['', 0]
+  useCertificationReset(() => {
+    void refetchCertification()
+    setStatus('idle')
+  })
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     if (!address) return
     setStatus('loading')
     try {
-      const response = await requestCertification(address, requested)
+      const response = await requestCertification(address, requested, force)
       setResult(response.certification)
       await refetchCertification()
       void recordStep({
