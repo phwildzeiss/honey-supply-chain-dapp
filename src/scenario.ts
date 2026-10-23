@@ -18,7 +18,9 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
   normal: { label: 'Normal', force: {} },
   entwicklung: { label: 'Entwicklung', force: {} },
   'F-1': { label: 'F-1 Premium', force: { lab: 'PREMIUM', award: 'GOLD', certification: 'ASSOCIATION_ORGANIC' } },
-  'F-4': { label: 'F-4 Gatekeeper', force: { lab: 'GATEKEEPER', award: 'GOLD', certification: 'ASSOCIATION_ORGANIC' } },
+  // Anhang J.1: F-4 = Wassergehalt 20-23 % (PHQI auf 0, aber weiterhin sellable) — das ist im
+  // Simulator trotz des Namens "PHQI_EXCLUDED", nicht "GATEKEEPER" (das löst >23 %/NotSellable aus).
+  'F-4': { label: 'F-4 Gatekeeper', force: { lab: 'PHQI_EXCLUDED', award: 'GOLD', certification: 'ASSOCIATION_ORGANIC' } },
   'F-6': { label: 'F-6 Mischcharge', force: { certification: 'NONE' } },
   'F-7': { label: 'F-7 Vollständige Lieferkette', force: { certification: 'NONE' } },
 }
