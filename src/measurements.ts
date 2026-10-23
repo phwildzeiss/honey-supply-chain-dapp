@@ -1,7 +1,7 @@
 import { readContract } from 'wagmi/actions'
 import { config } from './wagmi'
 import { addresses } from './addresses'
-import { consumerGatewayAbi } from './generated'
+import { productGatewayAbi } from './generated'
 
 // Gemeinsamer Speicher für alle Konten in diesem Browser (nicht pro Adresse wie bei Apiaries/Harvest):
 // Eine Übergabe/ein Transport betrifft immer zwei Konten, und ohne einen gemeinsamen Schlüssel müsste man
@@ -57,12 +57,12 @@ export function clearSteps() {
 // Gleicher Qualitäts-Snapshot wie snapshot() in fullBatchFlow.ts, nur über einen einmaligen
 // readContract-Aufruf statt eines React-Hooks (wird aus Event-Handlern aufgerufen, nicht aus Komponenten).
 async function snapshotQuality(chainId: number, batchId: bigint): Promise<MeasurementRow> {
-  const consumerGateway = addresses[chainId as keyof typeof addresses]?.ConsumerGateway
-  if (!consumerGateway) return {}
+  const productGateway = addresses[chainId as keyof typeof addresses]?.ProductGateway
+  if (!productGateway) return {}
   try {
     const q = await readContract(config, {
-      address: consumerGateway,
-      abi: consumerGatewayAbi,
+      address: productGateway,
+      abi: productGatewayAbi,
       functionName: 'getQualityData',
       args: [batchId],
     })
@@ -70,8 +70,8 @@ async function snapshotQuality(chainId: number, batchId: bigint): Promise<Measur
     let priceCents: string | number = 'not sellable'
     try {
       const price = await readContract(config, {
-        address: consumerGateway,
-        abi: consumerGatewayAbi,
+        address: productGateway,
+        abi: productGatewayAbi,
         functionName: 'getPrice',
         args: [batchId, JAR_GRAMS],
       })

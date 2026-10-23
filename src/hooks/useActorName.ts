@@ -2,7 +2,7 @@ import { useChainId } from 'wagmi'
 import { useReadActorRegistryGetActor } from '../generated'
 import { addresses } from '../addresses'
 
-export function useActorName(address: string | undefined) {
+export function useActorName(address: `0x${string}` | undefined) {
     const chainId = useChainId()
     const actorRegistry = addresses[chainId as keyof typeof addresses]?.ActorRegistry
 

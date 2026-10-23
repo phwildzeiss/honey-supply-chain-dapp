@@ -271,173 +271,6 @@ export const actorRegistryAbi = [
 ] as const
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ConsumerGateway
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-export const consumerGatewayAbi = [
-  {
-    type: 'constructor',
-    inputs: [
-      {
-        name: 'actorRegistryAddress',
-        internalType: 'address',
-        type: 'address',
-      },
-      { name: 'supplyChainAddress', internalType: 'address', type: 'address' },
-      { name: 'honeyTokenAddress', internalType: 'address', type: 'address' },
-      { name: 'qualityIndexAddress', internalType: 'address', type: 'address' },
-      { name: 'pricingModelAddress', internalType: 'address', type: 'address' },
-    ],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'actorRegistry',
-    outputs: [
-      { name: '', internalType: 'contract ActorRegistry', type: 'address' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'batchId', internalType: 'uint256', type: 'uint256' }],
-    name: 'getBatchData',
-    outputs: [
-      {
-        name: 'batch',
-        internalType: 'struct SupplyChain.Batch',
-        type: 'tuple',
-        components: [
-          { name: 'quantity', internalType: 'uint256', type: 'uint256' },
-          { name: 'harvestYear', internalType: 'uint16', type: 'uint16' },
-          { name: 'beekeeper', internalType: 'address', type: 'address' },
-        ],
-      },
-      { name: 'holder', internalType: 'address', type: 'address' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'batchId', internalType: 'uint256', type: 'uint256' },
-      { name: 'jarSizeGrams', internalType: 'uint32', type: 'uint32' },
-    ],
-    name: 'getPrice',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'batchId', internalType: 'uint256', type: 'uint256' }],
-    name: 'getQualityData',
-    outputs: [
-      { name: 'si', internalType: 'uint256', type: 'uint256' },
-      { name: 'phqi', internalType: 'uint256', type: 'uint256' },
-      { name: 'mci', internalType: 'uint256', type: 'uint256' },
-      { name: 'qi', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'state',
-        internalType: 'enum QualityIndex.BatchState',
-        type: 'uint8',
-      },
-      {
-        name: 'reason',
-        internalType: 'enum QualityIndex.GatekeeperReason',
-        type: 'uint8',
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'tokenId', internalType: 'uint256', type: 'uint256' }],
-    name: 'getTokenData',
-    outputs: [
-      { name: 'batchId', internalType: 'uint256', type: 'uint256' },
-      { name: 'isJar', internalType: 'bool', type: 'bool' },
-      { name: 'jarSizeGrams', internalType: 'uint32', type: 'uint32' },
-      { name: 'originalQuantity', internalType: 'uint256', type: 'uint256' },
-      { name: 'processed', internalType: 'bool', type: 'bool' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'honeyToken',
-    outputs: [
-      { name: '', internalType: 'contract HoneyToken', type: 'address' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'pricingModel',
-    outputs: [
-      { name: '', internalType: 'contract PricingModel', type: 'address' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'qualityIndex',
-    outputs: [
-      { name: '', internalType: 'contract QualityIndex', type: 'address' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'honeyTokenAddress', internalType: 'address', type: 'address' },
-    ],
-    name: 'setHoneyToken',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'pricingModelAddress', internalType: 'address', type: 'address' },
-    ],
-    name: 'setPricingModel',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'qualityIndexAddress', internalType: 'address', type: 'address' },
-    ],
-    name: 'setQualityIndex',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'supplyChainAddress', internalType: 'address', type: 'address' },
-    ],
-    name: 'setSupplyChain',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'supplyChain',
-    outputs: [
-      { name: '', internalType: 'contract SupplyChain', type: 'address' },
-    ],
-    stateMutability: 'view',
-  },
-] as const
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // HoneyToken
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -873,6 +706,173 @@ export const pricingModelAbi = [
     name: 'setFloorPrice',
     outputs: [],
     stateMutability: 'nonpayable',
+  },
+] as const
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// ProductGateway
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const productGatewayAbi = [
+  {
+    type: 'constructor',
+    inputs: [
+      {
+        name: 'actorRegistryAddress',
+        internalType: 'address',
+        type: 'address',
+      },
+      { name: 'supplyChainAddress', internalType: 'address', type: 'address' },
+      { name: 'honeyTokenAddress', internalType: 'address', type: 'address' },
+      { name: 'qualityIndexAddress', internalType: 'address', type: 'address' },
+      { name: 'pricingModelAddress', internalType: 'address', type: 'address' },
+    ],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'actorRegistry',
+    outputs: [
+      { name: '', internalType: 'contract ActorRegistry', type: 'address' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'batchId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getBatchData',
+    outputs: [
+      {
+        name: 'batch',
+        internalType: 'struct SupplyChain.Batch',
+        type: 'tuple',
+        components: [
+          { name: 'quantity', internalType: 'uint256', type: 'uint256' },
+          { name: 'harvestYear', internalType: 'uint16', type: 'uint16' },
+          { name: 'beekeeper', internalType: 'address', type: 'address' },
+        ],
+      },
+      { name: 'holder', internalType: 'address', type: 'address' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'batchId', internalType: 'uint256', type: 'uint256' },
+      { name: 'jarSizeGrams', internalType: 'uint32', type: 'uint32' },
+    ],
+    name: 'getPrice',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'batchId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getQualityData',
+    outputs: [
+      { name: 'si', internalType: 'uint256', type: 'uint256' },
+      { name: 'phqi', internalType: 'uint256', type: 'uint256' },
+      { name: 'mci', internalType: 'uint256', type: 'uint256' },
+      { name: 'qi', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'state',
+        internalType: 'enum QualityIndex.BatchState',
+        type: 'uint8',
+      },
+      {
+        name: 'reason',
+        internalType: 'enum QualityIndex.GatekeeperReason',
+        type: 'uint8',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'tokenId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getTokenData',
+    outputs: [
+      { name: 'batchId', internalType: 'uint256', type: 'uint256' },
+      { name: 'isJar', internalType: 'bool', type: 'bool' },
+      { name: 'jarSizeGrams', internalType: 'uint32', type: 'uint32' },
+      { name: 'originalQuantity', internalType: 'uint256', type: 'uint256' },
+      { name: 'processed', internalType: 'bool', type: 'bool' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'honeyToken',
+    outputs: [
+      { name: '', internalType: 'contract HoneyToken', type: 'address' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'pricingModel',
+    outputs: [
+      { name: '', internalType: 'contract PricingModel', type: 'address' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'qualityIndex',
+    outputs: [
+      { name: '', internalType: 'contract QualityIndex', type: 'address' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'honeyTokenAddress', internalType: 'address', type: 'address' },
+    ],
+    name: 'setHoneyToken',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'pricingModelAddress', internalType: 'address', type: 'address' },
+    ],
+    name: 'setPricingModel',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'qualityIndexAddress', internalType: 'address', type: 'address' },
+    ],
+    name: 'setQualityIndex',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'supplyChainAddress', internalType: 'address', type: 'address' },
+    ],
+    name: 'setSupplyChain',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'supplyChain',
+    outputs: [
+      { name: '', internalType: 'contract SupplyChain', type: 'address' },
+    ],
+    stateMutability: 'view',
   },
 ] as const
 
@@ -1682,179 +1682,6 @@ export const useWatchActorRegistryRoleRevokedEvent =
   })
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link consumerGatewayAbi}__
- */
-export const useReadConsumerGateway = /*#__PURE__*/ createUseReadContract({
-  abi: consumerGatewayAbi,
-})
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link consumerGatewayAbi}__ and `functionName` set to `"actorRegistry"`
- */
-export const useReadConsumerGatewayActorRegistry =
-  /*#__PURE__*/ createUseReadContract({
-    abi: consumerGatewayAbi,
-    functionName: 'actorRegistry',
-  })
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link consumerGatewayAbi}__ and `functionName` set to `"getBatchData"`
- */
-export const useReadConsumerGatewayGetBatchData =
-  /*#__PURE__*/ createUseReadContract({
-    abi: consumerGatewayAbi,
-    functionName: 'getBatchData',
-  })
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link consumerGatewayAbi}__ and `functionName` set to `"getPrice"`
- */
-export const useReadConsumerGatewayGetPrice =
-  /*#__PURE__*/ createUseReadContract({
-    abi: consumerGatewayAbi,
-    functionName: 'getPrice',
-  })
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link consumerGatewayAbi}__ and `functionName` set to `"getQualityData"`
- */
-export const useReadConsumerGatewayGetQualityData =
-  /*#__PURE__*/ createUseReadContract({
-    abi: consumerGatewayAbi,
-    functionName: 'getQualityData',
-  })
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link consumerGatewayAbi}__ and `functionName` set to `"getTokenData"`
- */
-export const useReadConsumerGatewayGetTokenData =
-  /*#__PURE__*/ createUseReadContract({
-    abi: consumerGatewayAbi,
-    functionName: 'getTokenData',
-  })
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link consumerGatewayAbi}__ and `functionName` set to `"honeyToken"`
- */
-export const useReadConsumerGatewayHoneyToken =
-  /*#__PURE__*/ createUseReadContract({
-    abi: consumerGatewayAbi,
-    functionName: 'honeyToken',
-  })
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link consumerGatewayAbi}__ and `functionName` set to `"pricingModel"`
- */
-export const useReadConsumerGatewayPricingModel =
-  /*#__PURE__*/ createUseReadContract({
-    abi: consumerGatewayAbi,
-    functionName: 'pricingModel',
-  })
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link consumerGatewayAbi}__ and `functionName` set to `"qualityIndex"`
- */
-export const useReadConsumerGatewayQualityIndex =
-  /*#__PURE__*/ createUseReadContract({
-    abi: consumerGatewayAbi,
-    functionName: 'qualityIndex',
-  })
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link consumerGatewayAbi}__ and `functionName` set to `"supplyChain"`
- */
-export const useReadConsumerGatewaySupplyChain =
-  /*#__PURE__*/ createUseReadContract({
-    abi: consumerGatewayAbi,
-    functionName: 'supplyChain',
-  })
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link consumerGatewayAbi}__
- */
-export const useWriteConsumerGateway = /*#__PURE__*/ createUseWriteContract({
-  abi: consumerGatewayAbi,
-})
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link consumerGatewayAbi}__ and `functionName` set to `"setHoneyToken"`
- */
-export const useWriteConsumerGatewaySetHoneyToken =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: consumerGatewayAbi,
-    functionName: 'setHoneyToken',
-  })
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link consumerGatewayAbi}__ and `functionName` set to `"setPricingModel"`
- */
-export const useWriteConsumerGatewaySetPricingModel =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: consumerGatewayAbi,
-    functionName: 'setPricingModel',
-  })
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link consumerGatewayAbi}__ and `functionName` set to `"setQualityIndex"`
- */
-export const useWriteConsumerGatewaySetQualityIndex =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: consumerGatewayAbi,
-    functionName: 'setQualityIndex',
-  })
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link consumerGatewayAbi}__ and `functionName` set to `"setSupplyChain"`
- */
-export const useWriteConsumerGatewaySetSupplyChain =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: consumerGatewayAbi,
-    functionName: 'setSupplyChain',
-  })
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link consumerGatewayAbi}__
- */
-export const useSimulateConsumerGateway =
-  /*#__PURE__*/ createUseSimulateContract({ abi: consumerGatewayAbi })
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link consumerGatewayAbi}__ and `functionName` set to `"setHoneyToken"`
- */
-export const useSimulateConsumerGatewaySetHoneyToken =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: consumerGatewayAbi,
-    functionName: 'setHoneyToken',
-  })
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link consumerGatewayAbi}__ and `functionName` set to `"setPricingModel"`
- */
-export const useSimulateConsumerGatewaySetPricingModel =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: consumerGatewayAbi,
-    functionName: 'setPricingModel',
-  })
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link consumerGatewayAbi}__ and `functionName` set to `"setQualityIndex"`
- */
-export const useSimulateConsumerGatewaySetQualityIndex =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: consumerGatewayAbi,
-    functionName: 'setQualityIndex',
-  })
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link consumerGatewayAbi}__ and `functionName` set to `"setSupplyChain"`
- */
-export const useSimulateConsumerGatewaySetSupplyChain =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: consumerGatewayAbi,
-    functionName: 'setSupplyChain',
-  })
-
-/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link honeyTokenAbi}__
  */
 export const useReadHoneyToken = /*#__PURE__*/ createUseReadContract({
@@ -2287,6 +2114,179 @@ export const useSimulatePricingModelSetFloorPrice =
   /*#__PURE__*/ createUseSimulateContract({
     abi: pricingModelAbi,
     functionName: 'setFloorPrice',
+  })
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link productGatewayAbi}__
+ */
+export const useReadProductGateway = /*#__PURE__*/ createUseReadContract({
+  abi: productGatewayAbi,
+})
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link productGatewayAbi}__ and `functionName` set to `"actorRegistry"`
+ */
+export const useReadProductGatewayActorRegistry =
+  /*#__PURE__*/ createUseReadContract({
+    abi: productGatewayAbi,
+    functionName: 'actorRegistry',
+  })
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link productGatewayAbi}__ and `functionName` set to `"getBatchData"`
+ */
+export const useReadProductGatewayGetBatchData =
+  /*#__PURE__*/ createUseReadContract({
+    abi: productGatewayAbi,
+    functionName: 'getBatchData',
+  })
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link productGatewayAbi}__ and `functionName` set to `"getPrice"`
+ */
+export const useReadProductGatewayGetPrice =
+  /*#__PURE__*/ createUseReadContract({
+    abi: productGatewayAbi,
+    functionName: 'getPrice',
+  })
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link productGatewayAbi}__ and `functionName` set to `"getQualityData"`
+ */
+export const useReadProductGatewayGetQualityData =
+  /*#__PURE__*/ createUseReadContract({
+    abi: productGatewayAbi,
+    functionName: 'getQualityData',
+  })
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link productGatewayAbi}__ and `functionName` set to `"getTokenData"`
+ */
+export const useReadProductGatewayGetTokenData =
+  /*#__PURE__*/ createUseReadContract({
+    abi: productGatewayAbi,
+    functionName: 'getTokenData',
+  })
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link productGatewayAbi}__ and `functionName` set to `"honeyToken"`
+ */
+export const useReadProductGatewayHoneyToken =
+  /*#__PURE__*/ createUseReadContract({
+    abi: productGatewayAbi,
+    functionName: 'honeyToken',
+  })
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link productGatewayAbi}__ and `functionName` set to `"pricingModel"`
+ */
+export const useReadProductGatewayPricingModel =
+  /*#__PURE__*/ createUseReadContract({
+    abi: productGatewayAbi,
+    functionName: 'pricingModel',
+  })
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link productGatewayAbi}__ and `functionName` set to `"qualityIndex"`
+ */
+export const useReadProductGatewayQualityIndex =
+  /*#__PURE__*/ createUseReadContract({
+    abi: productGatewayAbi,
+    functionName: 'qualityIndex',
+  })
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link productGatewayAbi}__ and `functionName` set to `"supplyChain"`
+ */
+export const useReadProductGatewaySupplyChain =
+  /*#__PURE__*/ createUseReadContract({
+    abi: productGatewayAbi,
+    functionName: 'supplyChain',
+  })
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link productGatewayAbi}__
+ */
+export const useWriteProductGateway = /*#__PURE__*/ createUseWriteContract({
+  abi: productGatewayAbi,
+})
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link productGatewayAbi}__ and `functionName` set to `"setHoneyToken"`
+ */
+export const useWriteProductGatewaySetHoneyToken =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: productGatewayAbi,
+    functionName: 'setHoneyToken',
+  })
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link productGatewayAbi}__ and `functionName` set to `"setPricingModel"`
+ */
+export const useWriteProductGatewaySetPricingModel =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: productGatewayAbi,
+    functionName: 'setPricingModel',
+  })
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link productGatewayAbi}__ and `functionName` set to `"setQualityIndex"`
+ */
+export const useWriteProductGatewaySetQualityIndex =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: productGatewayAbi,
+    functionName: 'setQualityIndex',
+  })
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link productGatewayAbi}__ and `functionName` set to `"setSupplyChain"`
+ */
+export const useWriteProductGatewaySetSupplyChain =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: productGatewayAbi,
+    functionName: 'setSupplyChain',
+  })
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link productGatewayAbi}__
+ */
+export const useSimulateProductGateway =
+  /*#__PURE__*/ createUseSimulateContract({ abi: productGatewayAbi })
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link productGatewayAbi}__ and `functionName` set to `"setHoneyToken"`
+ */
+export const useSimulateProductGatewaySetHoneyToken =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: productGatewayAbi,
+    functionName: 'setHoneyToken',
+  })
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link productGatewayAbi}__ and `functionName` set to `"setPricingModel"`
+ */
+export const useSimulateProductGatewaySetPricingModel =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: productGatewayAbi,
+    functionName: 'setPricingModel',
+  })
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link productGatewayAbi}__ and `functionName` set to `"setQualityIndex"`
+ */
+export const useSimulateProductGatewaySetQualityIndex =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: productGatewayAbi,
+    functionName: 'setQualityIndex',
+  })
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link productGatewayAbi}__ and `functionName` set to `"setSupplyChain"`
+ */
+export const useSimulateProductGatewaySetSupplyChain =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: productGatewayAbi,
+    functionName: 'setSupplyChain',
   })
 
 /**

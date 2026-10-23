@@ -5,7 +5,7 @@ function shortenAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`
 }
 
-function ActorLabel({ address }: { address: string | undefined }) {
+function ActorLabel({ address }: { address: `0x${string}` | undefined }) {
   const name = useActorName(address)
   const roles = useMyRoles(address)
   const role = roles.beekeeper

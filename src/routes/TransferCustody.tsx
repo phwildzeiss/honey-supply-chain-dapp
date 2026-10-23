@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useChainId, useConnection, useWaitForTransactionReceipt } from 'wagmi'
 import {
   useReadActorRegistryGetAllActors,
-  useReadConsumerGatewayGetBatchData,
+  useReadProductGatewayGetBatchData,
   useReadHoneyTokenIsApprovedForAll,
   useWriteHoneyTokenSetApprovalForAll,
   useWriteSupplyChainTransferCustody,
@@ -18,16 +18,16 @@ function TransferCustody() {
   const { batchId } = useParams()
   const chainId = useChainId()
   const { address } = useConnection()
-  const consumerGateway = addresses[chainId as keyof typeof addresses]?.ConsumerGateway
+  const productGateway = addresses[chainId as keyof typeof addresses]?.ProductGateway
   const actorRegistry = addresses[chainId as keyof typeof addresses]?.ActorRegistry
   const honeyToken = addresses[chainId as keyof typeof addresses]?.HoneyToken
   const supplyChain = addresses[chainId as keyof typeof addresses]?.SupplyChain
   const id = batchId ? BigInt(batchId) : undefined
 
-  const { data: batchData } = useReadConsumerGatewayGetBatchData({
-    address: consumerGateway,
+  const { data: batchData } = useReadProductGatewayGetBatchData({
+    address: productGateway,
     args: id !== undefined ? [id] : undefined,
-    query: { enabled: Boolean(consumerGateway && id !== undefined) },
+    query: { enabled: Boolean(productGateway && id !== undefined) },
   })
   const { data: actorsData } = useReadActorRegistryGetAllActors({ address: actorRegistry })
   const { data: isApproved, refetch: refetchApproval } = useReadHoneyTokenIsApprovedForAll({

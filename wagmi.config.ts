@@ -12,7 +12,7 @@ export default defineConfig({
         "QualityIndex.json",
         "PricingModel.json",
         "SupplyChain.json",
-        "ConsumerGateway.json",
+        "ProductGateway.json",
       ],
     }),
     react(),

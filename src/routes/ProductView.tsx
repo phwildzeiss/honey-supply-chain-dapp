@@ -1,10 +1,12 @@
 import { useState, type SubmitEvent } from 'react'
 import { useChainId } from 'wagmi'
 import {
-  useReadConsumerGatewayGetBatchData,
-  useReadConsumerGatewayGetQualityData,
-  useReadConsumerGatewayGetPrice,
+  useReadProductGatewayGetBatchData,
+  useReadProductGatewayGetQualityData,
+  useReadProductGatewayGetPrice,
   useReadSupplyChainRetailReceiptTimestamp,
+  useReadPricingModelAlpha,
+  useReadPricingModelFloorPrices,
 } from '../generated'
 import { addresses } from '../addresses'
 import ActorLabel from '../components/ActorLabel'
@@ -16,16 +18,30 @@ const REASON_LABELS: Record<number, string> = {
   2: 'Kühlkettenverletzung',
 }
 
-function ConsumerView() {
+// Gewichte aus QualityIndex.sol (QI_PHQI/QI_MCI/QI_SI, SCALE=10000) — hier nur zur Anzeige nachgebildet,
+// nicht zur Berechnung: der angezeigte QI/Preis kommt immer direkt vom Contract.
+const QI_WEIGHT_PHQI = 0.5396
+const QI_WEIGHT_MCI = 0.297
+const QI_WEIGHT_SI = 0.1634
+
+function ProductView() {
   const chainId = useChainId()
   const [inputId, setInputId] = useState('')
   const [batchId, setBatchId] = useState<bigint | undefined>(undefined)
 
-  const consumerGateway = addresses[chainId as keyof typeof addresses]?.ConsumerGateway
+  const productGateway = addresses[chainId as keyof typeof addresses]?.ProductGateway
   const qualityIndex = addresses[chainId as keyof typeof addresses]?.QualityIndex
   const actorRegistry = addresses[chainId as keyof typeof addresses]?.ActorRegistry
   const supplyChain = addresses[chainId as keyof typeof addresses]?.SupplyChain
-  const enabled = Boolean(consumerGateway && batchId !== undefined)
+  const pricingModel = addresses[chainId as keyof typeof addresses]?.PricingModel
+  const enabled = Boolean(productGateway && batchId !== undefined)
+
+  const { data: alpha } = useReadPricingModelAlpha({ address: pricingModel, query: { enabled: Boolean(pricingModel) } })
+  const { data: floorPrice } = useReadPricingModelFloorPrices({
+    address: pricingModel,
+    args: [500],
+    query: { enabled: Boolean(pricingModel) },
+  })
 
   const retailReceiptQuery = useReadSupplyChainRetailReceiptTimestamp({
     address: supplyChain,
@@ -34,18 +50,18 @@ function ConsumerView() {
   })
   const availableAtRetail = Boolean(retailReceiptQuery.data)
 
-  const { data: batchData } = useReadConsumerGatewayGetBatchData({
-    address: consumerGateway,
+  const { data: batchData } = useReadProductGatewayGetBatchData({
+    address: productGateway,
     args: batchId !== undefined ? [batchId] : undefined,
     query: { enabled: enabled && availableAtRetail },
   })
-  const { data: qualityData } = useReadConsumerGatewayGetQualityData({
-    address: consumerGateway,
+  const { data: qualityData } = useReadProductGatewayGetQualityData({
+    address: productGateway,
     args: batchId !== undefined ? [batchId] : undefined,
     query: { enabled: enabled && availableAtRetail },
   })
-  const priceQuery = useReadConsumerGatewayGetPrice({
-    address: consumerGateway,
+  const priceQuery = useReadProductGatewayGetPrice({
+    address: productGateway,
     args: batchId !== undefined ? [batchId, 500] : undefined,
     query: { enabled: enabled && availableAtRetail },
   })
@@ -58,7 +74,7 @@ function ConsumerView() {
 
   return (
     <div>
-      <h1>Honig-Herkunft prüfen</h1>
+      <h1>Produktansicht</h1>
       <form onSubmit={handleSubmit}>
         <label>
           Chargen-Nummer
@@ -76,7 +92,7 @@ function ConsumerView() {
       {batchId !== undefined && availableAtRetail && (!batchData || !qualityData) && <p>Lädt...</p>}
 
       {batchId !== undefined && availableAtRetail && batchData && qualityData && (
-        <ConsumerBatchDetails
+        <ProductBatchDetails
           batchId={batchId}
           batch={batchData[0]}
           holder={batchData[1]}
@@ -84,13 +100,15 @@ function ConsumerView() {
           priceQuery={priceQuery}
           qualityIndex={qualityIndex}
           actorRegistry={actorRegistry}
+          alpha={alpha}
+          floorPrice={floorPrice}
         />
       )}
     </div>
   )
 }
 
-function ConsumerBatchDetails({
+function ProductBatchDetails({
   batchId,
   batch,
   holder,
@@ -98,6 +116,8 @@ function ConsumerBatchDetails({
   priceQuery,
   qualityIndex,
   actorRegistry,
+  alpha,
+  floorPrice,
 }: {
   batchId: bigint
   batch: { harvestYear: number; beekeeper: `0x${string}`; quantity: bigint }
@@ -106,9 +126,18 @@ function ConsumerBatchDetails({
   priceQuery: { isError: boolean; data: bigint | undefined }
   qualityIndex: `0x${string}` | undefined
   actorRegistry: `0x${string}` | undefined
+  alpha: bigint | undefined
+  floorPrice: bigint | undefined
 }) {
   const [si, phqi, mci, qi, state, reason] = qualityData
   const jarCount = useJarCount(batchId, holder)
+
+  const siFraction = Number(si) / 10000
+  const phqiFraction = Number(phqi) / 10000
+  const mciFraction = Number(mci) / 10000
+  const qiFraction = Number(qi) / 10000
+  const alphaFraction = alpha !== undefined ? Number(alpha) / 10000 : undefined
+  const floorEuro = floorPrice !== undefined ? Number(floorPrice) / 100 : undefined
 
   return (
     <div>
@@ -145,6 +174,23 @@ function ConsumerBatchDetails({
             : '...'}
       </p>
 
+      <h3>Preisbildungslogik</h3>
+      <p>
+        QI = PHQI × {(QI_WEIGHT_PHQI * 100).toFixed(2)} % + MCI × {(QI_WEIGHT_MCI * 100).toFixed(2)} % + SI ×{' '}
+        {(QI_WEIGHT_SI * 100).toFixed(2)} %
+        <br />
+        = {phqiFraction.toFixed(4)} × {QI_WEIGHT_PHQI} + {mciFraction.toFixed(4)} × {QI_WEIGHT_MCI} +{' '}
+        {siFraction.toFixed(4)} × {QI_WEIGHT_SI} = {qiFraction.toFixed(4)}
+      </p>
+      {!priceQuery.isError && alphaFraction !== undefined && floorEuro !== undefined && (
+        <p>
+          Preis = Grundpreis × (1 + alpha × QI)
+          <br />
+          = {floorEuro.toFixed(2)} € × (1 + {alphaFraction} × {qiFraction.toFixed(4)}) ={' '}
+          {(floorEuro * (1 + alphaFraction * qiFraction)).toFixed(2)} €
+        </p>
+      )}
+
       <h3>Dokumente</h3>
       <BatchDocuments
         batchId={batchId}
@@ -160,4 +206,4 @@ function ConsumerBatchDetails({
   )
 }
 
-export default ConsumerView
+export default ProductView

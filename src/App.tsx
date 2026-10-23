@@ -11,7 +11,7 @@ import SubmitSi from './routes/SubmitSi'
 import TransferCustody from './routes/TransferCustody'
 import ProcessAndBottle from './routes/ProcessAndBottle'
 import MyBatches from './routes/MyBatches'
-import ConsumerView from './routes/ConsumerView'
+import ProductView from './routes/ProductView'
 import SubmitCertification from './routes/SubmitCertification'
 import MeasurementsExport from './routes/MeasurementsExport'
 
@@ -20,7 +20,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<ConnectPage />} />
-        <Route path="/consumer" element={<ConsumerView />} />
+        <Route path="/product" element={<ProductView />} />
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/apiaries" element={<Apiaries />} />

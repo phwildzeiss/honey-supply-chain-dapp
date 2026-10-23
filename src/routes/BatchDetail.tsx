@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useChainId, useConnection, useWaitForTransactionReceipt } from 'wagmi'
 import {
-  useReadConsumerGatewayGetBatchData,
-  useReadConsumerGatewayGetPrice,
-  useReadConsumerGatewayGetQualityData,
+  useReadProductGatewayGetBatchData,
+  useReadProductGatewayGetPrice,
+  useReadProductGatewayGetQualityData,
   useReadQualityIndexPhqiReportCid,
   useReadQualityIndexAwardCertificateCid,
   useReadQualityIndexOriginCid,
@@ -37,13 +37,13 @@ function BatchDetail() {
   const { batchId } = useParams()
   const chainId = useChainId()
   const { address } = useConnection()
-  const consumerGateway = addresses[chainId as keyof typeof addresses]?.ConsumerGateway
+  const productGateway = addresses[chainId as keyof typeof addresses]?.ProductGateway
   const qualityIndex = addresses[chainId as keyof typeof addresses]?.QualityIndex
   const actorRegistry = addresses[chainId as keyof typeof addresses]?.ActorRegistry
   const supplyChain = addresses[chainId as keyof typeof addresses]?.SupplyChain
   const honeyToken = addresses[chainId as keyof typeof addresses]?.HoneyToken
   const id = batchId ? BigInt(batchId) : undefined
-  const enabled = Boolean(consumerGateway && id !== undefined)
+  const enabled = Boolean(productGateway && id !== undefined)
   const roles = useMyRoles()
 
   const { data: processed } = useReadHoneyTokenProcessedBatches({
@@ -99,18 +99,18 @@ function BatchDetail() {
     confirmRetailReceipt.mutate({ address: supplyChain, args: [id], nonce })
   }
 
-  const { data: batchData } = useReadConsumerGatewayGetBatchData({
-    address: consumerGateway,
+  const { data: batchData } = useReadProductGatewayGetBatchData({
+    address: productGateway,
     args: id !== undefined ? [id] : undefined,
     query: { enabled },
   })
-  const { data: qualityData, refetch: refetchQualityData } = useReadConsumerGatewayGetQualityData({
-    address: consumerGateway,
+  const { data: qualityData, refetch: refetchQualityData } = useReadProductGatewayGetQualityData({
+    address: productGateway,
     args: id !== undefined ? [id] : undefined,
     query: { enabled },
   })
-  const priceQuery = useReadConsumerGatewayGetPrice({
-    address: consumerGateway,
+  const priceQuery = useReadProductGatewayGetPrice({
+    address: productGateway,
     args: id !== undefined ? [id, 500] : undefined,
     query: { enabled },
   })

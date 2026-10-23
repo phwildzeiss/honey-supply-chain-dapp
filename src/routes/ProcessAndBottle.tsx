@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type SubmitEvent } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useChainId, useConnection, useWaitForTransactionReceipt } from 'wagmi'
-import { useReadConsumerGatewayGetBatchData, useWriteSupplyChainProcessAndBottle } from '../generated'
+import { useReadProductGatewayGetBatchData, useWriteSupplyChainProcessAndBottle } from '../generated'
 import { addresses } from '../addresses'
 import { useMyRoles } from '../hooks/useMyRoles'
 import { recordStep, recordError, errorMessage } from '../measurements'
@@ -14,15 +14,15 @@ function ProcessAndBottle() {
   const { batchId } = useParams()
   const chainId = useChainId()
   const { address } = useConnection()
-  const consumerGateway = addresses[chainId as keyof typeof addresses]?.ConsumerGateway
+  const productGateway = addresses[chainId as keyof typeof addresses]?.ProductGateway
   const supplyChain = addresses[chainId as keyof typeof addresses]?.SupplyChain
   const id = batchId ? BigInt(batchId) : undefined
   const roles = useMyRoles()
 
-  const { data: batchData } = useReadConsumerGatewayGetBatchData({
-    address: consumerGateway,
+  const { data: batchData } = useReadProductGatewayGetBatchData({
+    address: productGateway,
     args: id !== undefined ? [id] : undefined,
-    query: { enabled: Boolean(consumerGateway && id !== undefined) },
+    query: { enabled: Boolean(productGateway && id !== undefined) },
   })
 
   const [count, setCount] = useState('')
