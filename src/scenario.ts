@@ -29,8 +29,8 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
   'F-1': { label: 'F-1 Premium', force: { lab: 'PREMIUM', award: 'GOLD', certification: 'ASSOCIATION_ORGANIC', ...SAFE_SENSORS } },
   'F-4': { label: 'F-4 Gatekeeper', force: { lab: 'PHQI_EXCLUDED', award: 'GOLD', certification: 'ASSOCIATION_ORGANIC', ...SAFE_SENSORS } },
   'F-5': { label: 'F-5 Temperaturverletzung', force: { lab: 'STANDARD', certification: 'NONE', transport: 'NORMAL', warehouse: 'NORMAL', defrost: 'VIOLATION' } },
-  'F-6': { label: 'F-6 Mischcharge', force: { certification: 'NONE', ...SAFE_SENSORS } },
-  'F-7': { label: 'F-7 Vollständige Lieferkette', force: { certification: 'NONE', ...SAFE_SENSORS } },
+  'F-6': { label: 'F-6 Mischcharge', force: { lab: 'STANDARD', certification: 'NONE', ...SAFE_SENSORS } },
+  'F-7': { label: 'F-7 Vollständige Lieferkette', force: { lab: 'STANDARD', certification: 'NONE', ...SAFE_SENSORS } },
 }
 
 const STORAGE_KEY = 'activeScenario'
