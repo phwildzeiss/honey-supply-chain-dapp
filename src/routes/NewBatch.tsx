@@ -115,7 +115,7 @@ function NewBatch() {
 
   return (
     <div>
-      <h1>Gebinde anlegen</h1>
+      <h1>Charge anlegen</h1>
 
       <form onSubmit={handleSubmit}>
         <label>
@@ -154,7 +154,7 @@ function NewBatch() {
         </button>
 
         <button type="submit" disabled={registerBatch.isPending || receipt.isLoading}>
-          {registerBatch.isPending || receipt.isLoading ? 'Wird angelegt...' : 'Gebinde anlegen'}
+          {registerBatch.isPending || receipt.isLoading ? 'Charge wird angelegt...' : 'Charge anlegen'}
         </button>
       </form>
     </div>

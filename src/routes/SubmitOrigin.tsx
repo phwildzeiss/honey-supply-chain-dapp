@@ -178,7 +178,7 @@ function SubmitOrigin() {
   if (phase === 'done') {
     return (
       <div>
-        <p>Herkunft wurde eingetragen.</p>
+        <p>Herkunft wurde eingereicht.</p>
         <Link to={`/batches/${batchId}`} className="tile">Zur Charge</Link>
       </div>
     )
@@ -187,7 +187,7 @@ function SubmitOrigin() {
   if (phase === 'retryOrigin') {
     return (
       <div>
-        <h1>Herkunft eintragen — Charge #{batchId}</h1>
+        <h1>Herkunft einreichen — Charge #{batchId}</h1>
         <p>Die Eignungsstufe wurde bereits eingereicht. Das Hochladen der Herkunftsangabe ist fehlgeschlagen.</p>
         {error && <p>{error}</p>}
         <button type="button" onClick={handleRetryOrigin}>Erneut versuchen</button>
@@ -197,7 +197,7 @@ function SubmitOrigin() {
 
   return (
     <div>
-      <h1>Herkunft eintragen — Charge #{batchId}</h1>
+      <h1>Herkunft einreichen — Charge #{batchId}</h1>
 
       <p>Beteiligte Orte: {placeNames.length > 0 ? placeNames.join(', ') : 'keine Zusammensetzung gefunden'}</p>
 
@@ -212,7 +212,7 @@ function SubmitOrigin() {
         </label>
 
         <button type="submit" disabled={phase !== 'form' || placeNames.length === 0}>
-          {phase === 'form' ? 'Einreichen' : 'Wird eingereicht...'}
+          {phase === 'form' ? 'Herkunft einreichen' : 'Wird eingereicht...'}
         </button>
       </form>
 

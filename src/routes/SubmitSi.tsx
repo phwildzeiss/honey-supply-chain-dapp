@@ -110,7 +110,7 @@ function SubmitSi() {
 
   return (
     <div>
-      <h1>SI einreichen — Charge #{batchId}</h1>
+      <h1>Standortdaten einreichen — Charge #{batchId}</h1>
 
       <p>
         Beteiligte Bienenstände:{' '}
@@ -124,7 +124,7 @@ function SubmitSi() {
         onClick={handleSubmit}
         disabled={composition.length === 0 || isCalculating || submitSi.isPending || receipt.isLoading}
       >
-        {isCalculating || submitSi.isPending || receipt.isLoading ? 'Wird eingereicht...' : 'SI einreichen'}
+        {isCalculating || submitSi.isPending || receipt.isLoading ? 'Wird eingereicht...' : 'Standortdaten einreichen'}
       </button>
 
       {error && <p>{error}</p>}
