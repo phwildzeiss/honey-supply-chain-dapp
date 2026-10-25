@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useChainId, useConnection, useWaitForTransactionReceipt } from 'wagmi'
+import { useChainId, useConnection, usePublicClient, useWaitForTransactionReceipt } from 'wagmi'
 import {
   useReadProductGatewayGetBatchData,
   useReadProductGatewayGetPrice,
@@ -14,12 +14,13 @@ import {
   useWriteSupplyChainRecordTransportData,
   useWriteSupplyChainRecordWarehouseData,
   useWriteSupplyChainRecordRetailReceipt,
+  qualityIndexAbi,
 } from '../generated'
 import { addresses } from '../addresses'
 import ActorLabel from '../components/ActorLabel'
 import {
   requestLabAnalysis, requestAward, fetchSensorReading,
-  type SensorReading, type SensorForce, type LabForce, type AwardForce,
+  type SensorReading, type SensorForce, type LabForce, type AwardForce, type LabReportData,
 } from '../simulator'
 import { useRequestedAwards } from '../hooks/useRequestedAwards'
 import { useMyRoles } from '../hooks/useMyRoles'
@@ -127,6 +128,10 @@ function BatchDetail() {
   const canBottle = roles.bottler && isCurrentHolder && !processed
   const canConfirmRetailReceipt = roles.retailer && isCurrentHolder && !retailReceiptTimestamp
   const hasAnyAction = isBeekeeperOfThisBatch || isCurrentHolder
+  const blockReason =
+    state === 1 ? 'Erst wieder möglich, sobald die Laboranalyse nach der Temperaturverletzung bestätigt wurde.'
+      : state === 2 ? 'Nicht möglich: Die Charge ist dauerhaft nicht verkäuflich.'
+      : null
 
   return (
     <div>
@@ -143,8 +148,8 @@ function BatchDetail() {
       <p>PHQI: {phqi.toString()}</p>
       <p>MCI: {mci.toString()}</p>
       <p>QI: {qi.toString()}</p>
-      <p>Zustand: {STATES[state]}</p>
-      <p>Grund: {REASONS[reason]}</p>
+      <p>Zustand: {state === 0 ? STATES[state] : <span className="state-warning">{STATES[state]}</span>}</p>
+      <p>Grund: {reason === 0 ? REASONS[reason] : <span className="state-warning">{REASONS[reason]}</span>}</p>
 
       <h2>Status</h2>
       <p>Abfüllstatus: {processed ? 'abgefüllt' : 'noch nicht abgefüllt'}</p>
@@ -175,24 +180,44 @@ function BatchDetail() {
               </>
             )}
             {isCurrentHolder && (
-              <Link to={`/batches/${batchId}/transfer`} className="tile">Charge übergeben</Link>
+              blockReason ? (
+                <span className="tile-disabled" title={blockReason}>
+                  Charge übergeben
+                </span>
+              ) : (
+                <Link to={`/batches/${batchId}/transfer`} className="tile">Charge übergeben</Link>
+              )
             )}
             {canBottle && (
-              <Link to={`/batches/${batchId}/bottle`} className="tile">Abfüllen</Link>
+              blockReason ? (
+                <span className="tile-disabled" title={blockReason}>
+                  Abfüllen
+                </span>
+              ) : (
+                <Link to={`/batches/${batchId}/bottle`} className="tile">Abfüllen</Link>
+              )
             )}
           </p>
           {canConfirmRetailReceipt && (
-            <p>
-              <button
-                type="button"
-                onClick={handleConfirmRetailReceipt}
-                disabled={confirmRetailReceipt.isPending || retailReceiptTxReceipt.isLoading}
-              >
-                {confirmRetailReceipt.isPending || retailReceiptTxReceipt.isLoading
-                  ? 'wird bestätigt...'
-                  : 'Wareneingang bestätigen'}
-              </button>
-            </p>
+            blockReason ? (
+              <p>
+                <span className="tile-disabled" title={blockReason}>
+                  Wareneingang bestätigen
+                </span>
+              </p>
+            ) : (
+              <p>
+                <button
+                  type="button"
+                  onClick={handleConfirmRetailReceipt}
+                  disabled={confirmRetailReceipt.isPending || retailReceiptTxReceipt.isLoading}
+                >
+                  {confirmRetailReceipt.isPending || retailReceiptTxReceipt.isLoading
+                    ? 'wird bestätigt...'
+                    : 'Wareneingang bestätigen'}
+                </button>
+              </p>
+            )
           )}
           {isCurrentHolder && (
             <HandlingActions batchId={id} supplyChain={supplyChain} onReported={refetchQualityData} />
@@ -227,7 +252,7 @@ function HandlingActions({
   const chainId = useChainId()
   const { address } = useConnection()
   const roles = useMyRoles()
-  const { isDev } = useActiveScenario()
+  const { isDev, scenario } = useActiveScenario()
   const recordTransport = useWriteSupplyChainRecordTransportData()
   const transportReceipt = useWaitForTransactionReceipt({ hash: recordTransport.data })
   const transportTiming = useTxTiming(recordTransport.data)
@@ -338,7 +363,7 @@ function HandlingActions({
     if (batchId === undefined || !supplyChain) return
     setTransportStatus('loading')
     try {
-      const reading = await fetchSensorReading('transport', isDev ? (transportForce || undefined) : undefined)
+      const reading = await fetchSensorReading('transport', isDev ? (transportForce || undefined) : scenario.force.transport)
       setTransportResult(reading)
       transportErrorRecorded.current = false
       transportTiming.markSubmitted()
@@ -362,7 +387,7 @@ function HandlingActions({
     if (batchId === undefined || !supplyChain) return
     setWarehouseStatus('loading')
     try {
-      const reading = await fetchSensorReading('warehouse', isDev ? (warehouseForce || undefined) : undefined)
+      const reading = await fetchSensorReading('warehouse', isDev ? (warehouseForce || undefined) : scenario.force.warehouse)
       setWarehouseResult(reading)
       warehouseErrorRecorded.current = false
       warehouseTiming.markSubmitted()
@@ -386,7 +411,7 @@ function HandlingActions({
     if (batchId === undefined || !supplyChain) return
     setDefrostStatus('loading')
     try {
-      const reading = await fetchSensorReading('defrost', isDev ? (defrostForce || undefined) : undefined)
+      const reading = await fetchSensorReading('defrost', isDev ? (defrostForce || undefined) : scenario.force.defrost)
       setDefrostResult(reading)
       defrostErrorRecorded.current = false
       defrostTiming.markSubmitted()
@@ -480,6 +505,7 @@ export function BatchDocuments({
   state: number
 }) {
   const chainId = useChainId()
+  const publicClient = usePublicClient()
   const { isDev, scenario } = useActiveScenario()
   const [labStatus, setLabStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [labForce, setLabForce] = useState<LabForce | ''>('')
@@ -487,11 +513,31 @@ export function BatchDocuments({
   const [awardForce, setAwardForce] = useState<AwardForce | ''>('')
   const { isRequested, markRequested } = useRequestedAwards()
 
+  const [lastReportData, setLastReportData] = useState<LabReportData>()
+  const [labReportHistory, setLabReportHistory] = useState<string[]>([])
+
   const { data: labReportCid, refetch: refetchLabReportCid } = useReadQualityIndexPhqiReportCid({
     address: qualityIndex,
     args: batchId !== undefined ? [batchId] : undefined,
     query: { enabled: Boolean(qualityIndex && batchId !== undefined) },
   })
+
+  async function refetchLabReportHistory() {
+    if (!publicClient || !qualityIndex || batchId === undefined) return
+    const logs = await publicClient.getContractEvents({
+      address: qualityIndex,
+      abi: qualityIndexAbi,
+      eventName: 'PHQIDataSubmitted',
+      args: { batchId },
+      fromBlock: 0n,
+      toBlock: 'latest',
+    })
+    setLabReportHistory(logs.map((log) => log.args.ipfsCid).filter((cid): cid is string => Boolean(cid)))
+  }
+
+  useEffect(() => {
+    void refetchLabReportHistory()
+  }, [publicClient, qualityIndex, batchId])
   const { data: awardCertificateCid, refetch: refetchAwardCertificateCid } = useReadQualityIndexAwardCertificateCid({
     address: qualityIndex,
     args: batchId !== undefined ? [batchId] : undefined,
@@ -502,8 +548,15 @@ export function BatchDocuments({
     if (batchId === undefined) return
     setLabStatus('loading')
     try {
-      const result = await requestLabAnalysis(Number(batchId), isDev ? (labForce || undefined) : scenario.force.lab)
+      const isRetest = state === 1 && lastReportData !== undefined
+      const result = await requestLabAnalysis(
+        Number(batchId),
+        isRetest ? undefined : isDev ? (labForce || undefined) : scenario.force.lab,
+        isRetest ? lastReportData : undefined,
+      )
+      setLastReportData(result.reportData)
       await refetchLabReportCid()
+      await refetchLabReportHistory()
       onQualityChanged()
       void recordStep({
         chainId, batchId, step: 'labAnalysis', actor: 'lab',
@@ -570,10 +623,15 @@ export function BatchDocuments({
       </p>
       <p>
         Laboranalyse:{' '}
-        {labReportCid ? (
-          <a href={IPFS_GATEWAY + labReportCid} target="_blank" rel="noreferrer">
-            ansehen
-          </a>
+        {labReportHistory.length > 0 ? (
+          labReportHistory.map((cid, index) => (
+            <span key={cid}>
+              {index > 0 && ' · '}
+              <a href={IPFS_GATEWAY + cid} target="_blank" rel="noreferrer">
+                {labReportHistory.length === 1 ? 'ansehen' : index === 0 ? 'Befund 1' : `Befund ${index + 1} (Nachtest)`}
+              </a>
+            </span>
+          ))
         ) : (
           'noch nicht vorhanden'
         )}

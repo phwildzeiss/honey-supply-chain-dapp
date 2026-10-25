@@ -43,8 +43,6 @@ export async function uploadOrigin(regions: string[]): Promise<string> {
   return data.cid
 }
 
-// `timings` kommt direkt aus dem Simulator (siehe honey-supply-chain-simulator/common/StepTimings) —
-// dieselbe Phasen-Aufschlüsselung (render/upload/chain), die auch fullBatchFlow.ts nur weiterreicht.
 export type SimulatorTxResult = {
   ipfsCid: string
   transactionHash: `0x${string}`
@@ -52,20 +50,28 @@ export type SimulatorTxResult = {
   timings: { renderMs: number; uploadMs: number; chainMs: number }
 }
 
-// Für die Fallstudie: `force` erzwingt einen bestimmten Ausgang statt der sonst zufälligen,
-// realistischen Ziehung (gleiche Parameter wie fullBatchFlow.ts im Contracts-Repo sie schon für die
-// automatisierten Läufe nutzt) — z. B. um gezielt ein Gatekeeper- oder Temperaturverletzungs-Szenario
-// zu zeigen, ohne auf die konfigurierte Zufallswahrscheinlichkeit angewiesen zu sein. `undefined`
-// lässt den Simulator wie bisher zufällig würfeln.
+export type LabReportData = {
+  waterContentPercent: number
+  hmf: number
+  invertaseActivity: number
+  naturallyEnzymeWeak: boolean
+  ph: number
+  variety: string
+}
+
+export type LabAnalysisResult = SimulatorTxResult & { reportData: LabReportData }
+
 export type LabForce = 'NORMAL' | 'PREMIUM' | 'STANDARD' | 'GATEKEEPER' | 'PHQI_EXCLUDED'
 export type AwardForce = 'NONE' | 'BRONZE' | 'SILVER' | 'GOLD'
 export type SensorForce = 'NORMAL' | 'VIOLATION'
 
-export async function requestLabAnalysis(batchId: number, force?: LabForce): Promise<SimulatorTxResult> {
+export async function requestLabAnalysis(
+  batchId: number, force?: LabForce, previousReport?: LabReportData,
+): Promise<LabAnalysisResult> {
   const response = await fetch(`${SIMULATOR_URL}/api/lab/analysis`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ batchId, force }),
+    body: JSON.stringify({ batchId, force, previousReport }),
   })
   if (!response.ok) throw new Error('Laboranalyse-Anfrage fehlgeschlagen.')
   return response.json()

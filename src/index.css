@@ -5,6 +5,8 @@
   --border: #e0ddd6;
   --accent: #b8860b;
   --accent-bg: rgba(184, 134, 11, 0.08);
+  --warning: #b3261e;
+  --warning-bg: rgba(179, 38, 30, 0.1);
 
   font: 16px/1.5 system-ui, 'Segoe UI', Roboto, sans-serif;
   color: var(--text);
@@ -20,6 +22,8 @@
     --border: #2e303a;
     --accent: #e0b84d;
     --accent-bg: rgba(224, 184, 77, 0.12);
+    --warning: #ff6b6b;
+    --warning-bg: rgba(255, 107, 107, 0.14);
   }
 }
 
@@ -164,6 +168,26 @@ header strong {
 
 .tile:hover {
   border-color: var(--accent);
+}
+
+.tile-disabled {
+  display: inline-block;
+  padding: 1rem 1.25rem;
+  margin: 0 0.5rem 0.5rem 0;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: not-allowed;
+}
+
+.state-warning {
+  display: inline-block;
+  color: var(--warning);
+  font-weight: 600;
+  background: var(--warning-bg);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
 }
 
 table {
