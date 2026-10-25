@@ -893,6 +893,25 @@ export const qualityIndexAbi = [
     stateMutability: 'nonpayable',
   },
   {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'batchId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'ipfsCid',
+        internalType: 'string',
+        type: 'string',
+        indexed: false,
+      },
+    ],
+    name: 'PHQIDataSubmitted',
+  },
+  {
     type: 'function',
     inputs: [],
     name: 'actorRegistry',
@@ -1294,7 +1313,7 @@ export const supplyChainAbi = [
     type: 'function',
     inputs: [],
     name: 'maxSafeTemperatureCelsius',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    outputs: [{ name: '', internalType: 'int256', type: 'int256' }],
     stateMutability: 'view',
   },
   {
@@ -1335,7 +1354,7 @@ export const supplyChainAbi = [
     type: 'function',
     inputs: [
       { name: 'batchId', internalType: 'uint256', type: 'uint256' },
-      { name: 'temperatureCelsius', internalType: 'uint256', type: 'uint256' },
+      { name: 'temperatureCelsius', internalType: 'int256', type: 'int256' },
       { name: 'durationMinutes', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'recordTransportData',
@@ -1346,7 +1365,7 @@ export const supplyChainAbi = [
     type: 'function',
     inputs: [
       { name: 'batchId', internalType: 'uint256', type: 'uint256' },
-      { name: 'temperatureCelsius', internalType: 'uint256', type: 'uint256' },
+      { name: 'temperatureCelsius', internalType: 'int256', type: 'int256' },
       { name: 'durationMinutes', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'recordWarehouseData',
@@ -1386,7 +1405,7 @@ export const supplyChainAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: 'celsius', internalType: 'uint256', type: 'uint256' }],
+    inputs: [{ name: 'celsius', internalType: 'int256', type: 'int256' }],
     name: 'setMaxSafeTemperature',
     outputs: [],
     stateMutability: 'nonpayable',
@@ -2566,6 +2585,21 @@ export const useSimulateQualityIndexTriggerTemperatureViolation =
   /*#__PURE__*/ createUseSimulateContract({
     abi: qualityIndexAbi,
     functionName: 'triggerTemperatureViolation',
+  })
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link qualityIndexAbi}__
+ */
+export const useWatchQualityIndexEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({ abi: qualityIndexAbi })
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link qualityIndexAbi}__ and `eventName` set to `"PHQIDataSubmitted"`
+ */
+export const useWatchQualityIndexPhqiDataSubmittedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: qualityIndexAbi,
+    eventName: 'PHQIDataSubmitted',
   })
 
 /**
