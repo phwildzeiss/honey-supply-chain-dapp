@@ -18,11 +18,9 @@ const REASON_LABELS: Record<number, string> = {
   2: 'Kühlkettenverletzung',
 }
 
-// Gewichte aus QualityIndex.sol (QI_PHQI/QI_MCI/QI_SI, SCALE=10000) — hier nur zur Anzeige nachgebildet,
-// nicht zur Berechnung: der angezeigte QI/Preis kommt immer direkt vom Contract.
-const QI_WEIGHT_PHQI = 0.5396
-const QI_WEIGHT_MCI = 0.297
-const QI_WEIGHT_SI = 0.1634
+const QI_WEIGHT_PHQI = 0.539
+const QI_WEIGHT_MCI = 0.2972
+const QI_WEIGHT_SI = 0.1638
 
 function ProductView() {
   const chainId = useChainId()
