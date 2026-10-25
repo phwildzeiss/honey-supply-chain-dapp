@@ -18,7 +18,10 @@ function MyBatches() {
       {asHolder.length > 0 ? (
         <ul>
           {asHolder.map((id) => (
-            <li key={id}><Link to={`/batches/${id}`}>Charge #{id}</Link></li>
+            <li key={id}>
+              <Link to={`/batches/${id}`}>Charge #{id}</Link>{' '}
+              · <Link to={`/product/${id}`} state={{ fromApp: true }}>Produktansicht</Link>
+            </li>
           ))}
         </ul>
       ) : (
@@ -31,7 +34,10 @@ function MyBatches() {
           {asBeekeeper.length > 0 ? (
             <ul>
               {asBeekeeper.map((id) => (
-                <li key={id}><Link to={`/batches/${id}`}>Charge #{id}</Link></li>
+                <li key={id}>
+                  <Link to={`/batches/${id}`}>Charge #{id}</Link>{' '}
+                  · <Link to={`/product/${id}`} state={{ fromApp: true }}>Produktansicht</Link>
+                </li>
               ))}
             </ul>
           ) : (

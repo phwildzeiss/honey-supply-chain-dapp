@@ -1,4 +1,5 @@
 import { useState, type SubmitEvent } from 'react'
+import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { useChainId } from 'wagmi'
 import {
   useReadProductGatewayGetBatchData,
@@ -12,6 +13,7 @@ import { addresses } from '../addresses'
 import ActorLabel from '../components/ActorLabel'
 import { BatchDocuments } from './BatchDetail'
 import { useJarCount } from '../hooks/useJarCount'
+import { useOriginPlaces } from '../hooks/useOriginPlaces'
 
 const REASON_LABELS: Record<number, string> = {
   1: 'Wassergehalt überschritten',
@@ -24,8 +26,17 @@ const QI_WEIGHT_SI = 0.1638
 
 function ProductView() {
   const chainId = useChainId()
-  const [inputId, setInputId] = useState('')
-  const [batchId, setBatchId] = useState<bigint | undefined>(undefined)
+  const { batchId: batchIdParam } = useParams<{ batchId?: string }>()
+  const location = useLocation()
+  const navigate = useNavigate()
+  // Nur gesetzt, wenn ein Link aus der dApp selbst hierher verlinkt hat (state={{ fromApp: true }}) -
+  // ein Kaeufer, der die URL direkt (z.B. vom Etikett) aufruft, hat keinen "Zurück"-Link, weil es für
+  // ihn keine vorherige dApp-Seite gibt, zu der man zurückkehren könnte.
+  const cameFromApp = Boolean((location.state as { fromApp?: boolean } | null)?.fromApp)
+  const [inputId, setInputId] = useState(batchIdParam ?? '')
+  // Per Link/Button mit Chargen-Nummer in der URL (z.B. von "Meine Chargen" oder der Chargenansicht)
+  // direkt die passende Produktansicht oeffnen, ohne dass die Nummer erneut eingegeben werden muss.
+  const [batchId, setBatchId] = useState<bigint | undefined>(batchIdParam ? BigInt(batchIdParam) : undefined)
 
   const productGateway = addresses[chainId as keyof typeof addresses]?.ProductGateway
   const qualityIndex = addresses[chainId as keyof typeof addresses]?.QualityIndex
@@ -41,27 +52,28 @@ function ProductView() {
     query: { enabled: Boolean(pricingModel) },
   })
 
+  // Nicht mehr an den Wareneingang gekoppelt: die Produktansicht zeigt eine Charge unabhängig vom
+  // Fortschritt in der Lieferkette, der Wareneingang fließt nur noch in den Statushinweis oben ein.
   const retailReceiptQuery = useReadSupplyChainRetailReceiptTimestamp({
     address: supplyChain,
     args: batchId !== undefined ? [batchId] : undefined,
     query: { enabled: Boolean(supplyChain && batchId !== undefined) },
   })
-  const availableAtRetail = Boolean(retailReceiptQuery.data)
 
   const { data: batchData } = useReadProductGatewayGetBatchData({
     address: productGateway,
     args: batchId !== undefined ? [batchId] : undefined,
-    query: { enabled: enabled && availableAtRetail },
+    query: { enabled },
   })
   const { data: qualityData } = useReadProductGatewayGetQualityData({
     address: productGateway,
     args: batchId !== undefined ? [batchId] : undefined,
-    query: { enabled: enabled && availableAtRetail },
+    query: { enabled },
   })
   const priceQuery = useReadProductGatewayGetPrice({
     address: productGateway,
     args: batchId !== undefined ? [batchId, 500] : undefined,
-    query: { enabled: enabled && availableAtRetail },
+    query: { enabled },
   })
 
   function handleSubmit(event: SubmitEvent) {
@@ -72,7 +84,11 @@ function ProductView() {
 
   return (
     <div>
+      {cameFromApp && (
+        <p><button type="button" onClick={() => navigate(-1)}>← Zurück</button></p>
+      )}
       <h1>Produktansicht</h1>
+      <p><em>Öffentliche Produktinformationen</em></p>
       <form onSubmit={handleSubmit}>
         <label>
           Chargen-Nummer
@@ -81,15 +97,9 @@ function ProductView() {
         <button type="submit">Anzeigen</button>
       </form>
 
-      {batchId !== undefined && retailReceiptQuery.isLoading && <p>Lädt...</p>}
+      {batchId !== undefined && (!batchData || !qualityData) && <p>Lädt...</p>}
 
-      {batchId !== undefined && !retailReceiptQuery.isLoading && !availableAtRetail && (
-        <p>Diese Charge ist noch nicht im Handel erhältlich.</p>
-      )}
-
-      {batchId !== undefined && availableAtRetail && (!batchData || !qualityData) && <p>Lädt...</p>}
-
-      {batchId !== undefined && availableAtRetail && batchData && qualityData && (
+      {batchId !== undefined && batchData && qualityData && (
         <ProductBatchDetails
           batchId={batchId}
           batch={batchData[0]}
@@ -100,6 +110,7 @@ function ProductView() {
           actorRegistry={actorRegistry}
           alpha={alpha}
           floorPrice={floorPrice}
+          retailReceiptTimestamp={retailReceiptQuery.data}
         />
       )}
     </div>
@@ -116,6 +127,7 @@ function ProductBatchDetails({
   actorRegistry,
   alpha,
   floorPrice,
+  retailReceiptTimestamp,
 }: {
   batchId: bigint
   batch: { harvestYear: number; beekeeper: `0x${string}`; quantity: bigint }
@@ -126,9 +138,11 @@ function ProductBatchDetails({
   actorRegistry: `0x${string}` | undefined
   alpha: bigint | undefined
   floorPrice: bigint | undefined
+  retailReceiptTimestamp: bigint | undefined
 }) {
   const [si, phqi, mci, qi, state, reason] = qualityData
   const jarCount = useJarCount(batchId, holder)
+  const originPlaces = useOriginPlaces(batchId)
 
   const siFraction = Number(si) / 10000
   const phqiFraction = Number(phqi) / 10000
@@ -137,29 +151,35 @@ function ProductBatchDetails({
   const alphaFraction = alpha !== undefined ? Number(alpha) / 10000 : undefined
   const floorEuro = floorPrice !== undefined ? Number(floorPrice) / 100 : undefined
 
+  // Statushinweis zuerst nach dem Qualitätszustand (Sperre/Nicht-verkaufsfähig geht immer vor), erst
+  // danach nach dem Lieferkettenfortschritt (Wareneingang) - eine gesperrte Charge bleibt gesperrt,
+  // auch wenn sie zufällig schon im Handel wäre.
+  const status =
+    state === 1
+      ? { kind: 'warning', text: `Charge gesperrt – Nachprüfung erforderlich (${REASON_LABELS[reason] ?? 'unbekannter Grund'})` }
+      : state === 2
+        ? { kind: 'warning', text: `Nicht verkaufsfähig (${REASON_LABELS[reason] ?? 'unbekannter Grund'})` }
+        : retailReceiptTimestamp
+          ? { kind: 'success', text: `Im Handel seit ${new Date(Number(retailReceiptTimestamp) * 1000).toLocaleString()}` }
+          : { kind: 'info', text: 'Charge in Bearbeitung – noch nicht im Handel' }
+
   return (
     <div>
       <h2>Charge #{batchId.toString()}</h2>
+      <p className={`status-banner ${status.kind}`}>{status.text}</p>
 
       <h3>Grunddaten</h3>
       <p>Erntejahr: {batch.harvestYear}</p>
       <p>Imker: <ActorLabel address={batch.beekeeper} /></p>
       <p>Menge: {(Number(batch.quantity) / 1000).toFixed(1)} kg</p>
       <p>Aktueller Halter: <ActorLabel address={holder} /></p>
+      <p>Herkunft: {originPlaces ? (originPlaces.length > 0 ? originPlaces.join(', ') : 'noch nicht eingetragen') : '...'}</p>
 
       <h3>Qualität</h3>
-      <p>SI: {si.toString()}</p>
-      <p>PHQI: {phqi.toString()}</p>
-      <p>MCI: {mci.toString()}</p>
-      <p>QI: {qi.toString()}</p>
-      <p>
-        Qualitätsstatus:{' '}
-        {state === 0
-          ? 'unauffällig'
-          : state === 1
-            ? `Erneute Prüfung angefordert (${REASON_LABELS[reason]})`
-            : `Nicht verkäuflich (${REASON_LABELS[reason]})`}
-      </p>
+      <p>SI: {siFraction.toFixed(4)}</p>
+      <p>PHQI: {phqiFraction.toFixed(4)}</p>
+      <p>MCI: {mciFraction.toFixed(4)}</p>
+      <p>QI: {qiFraction.toFixed(4)}</p>
 
       <h3>Status</h3>
       <p>Abgefüllte Gläser (500 g): {jarCount !== undefined ? jarCount.toString() : '...'}</p>

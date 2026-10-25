@@ -21,6 +21,7 @@ function App() {
       <Routes>
         <Route path="/" element={<ConnectPage />} />
         <Route path="/product" element={<ProductView />} />
+        <Route path="/product/:batchId" element={<ProductView />} />
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/apiaries" element={<Apiaries />} />

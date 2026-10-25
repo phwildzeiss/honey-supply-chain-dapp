@@ -47,13 +47,14 @@ function Dashboard() {
 
       <Tile to="/my-batches" label="Meine Chargen" />
       <Tile to="/measurements" label="Messwerte" />
+      <Tile to="/product" label="Produktansicht" state={{ fromApp: true }} />
 
       {roles.beekeeper && (
         <div>
           <h2>Aktionen</h2>
           <Tile to="/apiaries" label="Bienenstände" />
           <Tile to="/harvest" label="Ernte eintragen" />
-          <Tile to="/batches/new" label="Gebinde anlegen" />
+          <Tile to="/batches/new" label="Charge anlegen" />
           <Tile to="/certification" label="Zertifikat beantragen" />
         </div>
       )}

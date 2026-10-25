@@ -7,7 +7,6 @@ import {
   useReadProductGatewayGetQualityData,
   useReadQualityIndexPhqiReportCid,
   useReadQualityIndexAwardCertificateCid,
-  useReadQualityIndexOriginCid,
   useReadActorRegistryCertifications,
   useReadHoneyTokenProcessedBatches,
   useReadSupplyChainRetailReceiptTimestamp,
@@ -25,6 +24,7 @@ import {
 import { useRequestedAwards } from '../hooks/useRequestedAwards'
 import { useMyRoles } from '../hooks/useMyRoles'
 import { useJarCount } from '../hooks/useJarCount'
+import { useOriginPlaces } from '../hooks/useOriginPlaces'
 import { recordStep, recordError, roleLabel, errorMessage } from '../measurements'
 import { useTxTiming } from '../hooks/useTxTiming'
 import { getFreshNonce } from '../nonce'
@@ -33,6 +33,26 @@ import { useActiveScenario } from '../scenario'
 const STATES = ['Active', 'RetestRequired', 'NotSellable']
 const REASONS = ['None', 'WaterContentExceeded', 'TemperatureViolation']
 const IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs/'
+
+function labReportStorageKey(batchId: bigint): string {
+  return `labReport:${batchId.toString()}`
+}
+
+function loadLastReportData(batchId: bigint): LabReportData | undefined {
+  try {
+    const raw = sessionStorage.getItem(labReportStorageKey(batchId))
+    return raw ? (JSON.parse(raw) as LabReportData) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function saveLastReportData(batchId: bigint, data: LabReportData): void {
+  try {
+    sessionStorage.setItem(labReportStorageKey(batchId), JSON.stringify(data))
+  } catch {
+  }
+}
 
 function BatchDetail() {
   const { batchId } = useParams()
@@ -116,6 +136,7 @@ function BatchDetail() {
     query: { enabled },
   })
   const jarCount = useJarCount(id, batchData?.[1])
+  const originPlaces = useOriginPlaces(id)
 
   if (!batchData || !qualityData) {
     return <p>Lädt...</p>
@@ -123,6 +144,12 @@ function BatchDetail() {
 
   const [batch, holder] = batchData
   const [si, phqi, mci, qi, state, reason] = qualityData
+  // Contract-Skala ist 0-10000 (SCALE in QualityIndex.sol); die Arbeit stellt SI/PHQI/MCI/QI
+  // durchgehend als Dezimalwert 0-1 dar (z.B. Tabelle 5.7: 0,836), nicht als Ganzzahl oder Prozent.
+  const siFraction = Number(si) / 10000
+  const phqiFraction = Number(phqi) / 10000
+  const mciFraction = Number(mci) / 10000
+  const qiFraction = Number(qi) / 10000
   const isBeekeeperOfThisBatch = address?.toLowerCase() === batch.beekeeper.toLowerCase()
   const isCurrentHolder = address?.toLowerCase() === holder.toLowerCase()
   const canBottle = roles.bottler && isCurrentHolder && !processed
@@ -142,12 +169,13 @@ function BatchDetail() {
       <p>Imker: <ActorLabel address={batch.beekeeper} /></p>
       <p>Menge: {(Number(batch.quantity) / 1000).toFixed(1)} kg</p>
       <p>Aktueller Halter: <ActorLabel address={holder} /></p>
+      <p>Herkunft: {originPlaces ? (originPlaces.length > 0 ? originPlaces.join(', ') : 'noch nicht eingetragen') : '...'}</p>
 
       <h2>Qualität</h2>
-      <p>SI: {si.toString()}</p>
-      <p>PHQI: {phqi.toString()}</p>
-      <p>MCI: {mci.toString()}</p>
-      <p>QI: {qi.toString()}</p>
+      <p>SI: {siFraction.toFixed(4)}</p>
+      <p>PHQI: {phqiFraction.toFixed(4)}</p>
+      <p>MCI: {mciFraction.toFixed(4)}</p>
+      <p>QI: {qiFraction.toFixed(4)}</p>
       <p>Zustand: {state === 0 ? STATES[state] : <span className="state-warning">{STATES[state]}</span>}</p>
       <p>Grund: {reason === 0 ? REASONS[reason] : <span className="state-warning">{REASONS[reason]}</span>}</p>
 
@@ -168,6 +196,9 @@ function BatchDetail() {
             ? `${(Number(priceQuery.data) / 100).toFixed(2)} €`
             : '...'}
       </p>
+      <p>
+        <Link to={`/product/${batchId}`} state={{ fromApp: true }} className="tile">Produktansicht öffnen</Link>
+      </p>
 
       {hasAnyAction && (
         <>
@@ -175,8 +206,8 @@ function BatchDetail() {
           <p>
             {isBeekeeperOfThisBatch && (
               <>
-                <Link to={`/batches/${batchId}/si`} className="tile">SI einreichen</Link>
-                <Link to={`/batches/${batchId}/origin`} className="tile">Herkunft eintragen</Link>
+                <Link to={`/batches/${batchId}/si`} className="tile">Standortdaten einreichen</Link>
+                <Link to={`/batches/${batchId}/origin`} className="tile">Herkunft einreichen</Link>
               </>
             )}
             {isCurrentHolder && (
@@ -508,6 +539,7 @@ export function BatchDocuments({
   const publicClient = usePublicClient()
   const { isDev, scenario } = useActiveScenario()
   const [labStatus, setLabStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [labErrorMessage, setLabErrorMessage] = useState('')
   const [labForce, setLabForce] = useState<LabForce | ''>('')
   const [awardStatus, setAwardStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [awardForce, setAwardForce] = useState<AwardForce | ''>('')
@@ -515,6 +547,11 @@ export function BatchDocuments({
 
   const [lastReportData, setLastReportData] = useState<LabReportData>()
   const [labReportHistory, setLabReportHistory] = useState<string[]>([])
+
+  useEffect(() => {
+    if (batchId === undefined) return
+    setLastReportData(loadLastReportData(batchId))
+  }, [batchId])
 
   const { data: labReportCid, refetch: refetchLabReportCid } = useReadQualityIndexPhqiReportCid({
     address: qualityIndex,
@@ -546,15 +583,28 @@ export function BatchDocuments({
 
   async function handleRequestLab() {
     if (batchId === undefined) return
+    // state === 1 (RetestRequired) bedeutet immer, dass hier ein Nachtest noetig ist - nicht erst,
+    // wenn zufaellig noch ein Befund im Speicher ist. Fehlt der vorherige Befund (z. B. anderes
+    // Geraet/Browser, sessionStorage geleert), lieber klar abbrechen statt stillschweigend neu zu
+    // wuerfeln (das saehe im Case-Study-Modus wie ein unveraenderter Wiederholungsbefund aus).
+    const isRetest = state === 1
+    if (isRetest && !lastReportData) {
+      const message = 'Nachtest nicht möglich: Der vorherige Laborbefund wurde in dieser Sitzung nicht gefunden (z. B. anderes Gerät/Browser oder Sitzungsdaten gelöscht).'
+      setLabStatus('error')
+      setLabErrorMessage(message)
+      recordError({ chainId, batchId, step: 'labAnalysis', actor: 'lab', message })
+      return
+    }
     setLabStatus('loading')
+    setLabErrorMessage('')
     try {
-      const isRetest = state === 1 && lastReportData !== undefined
       const result = await requestLabAnalysis(
         Number(batchId),
         isRetest ? undefined : isDev ? (labForce || undefined) : scenario.force.lab,
         isRetest ? lastReportData : undefined,
       )
       setLastReportData(result.reportData)
+      saveLastReportData(batchId, result.reportData)
       await refetchLabReportCid()
       await refetchLabReportHistory()
       onQualityChanged()
@@ -566,11 +616,10 @@ export function BatchDocuments({
       })
       setLabStatus('idle')
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'Laboranalyse-Anfrage fehlgeschlagen.'
       setLabStatus('error')
-      recordError({
-        chainId, batchId, step: 'labAnalysis', actor: 'lab',
-        message: err instanceof Error ? err.message : 'Laboranalyse-Anfrage fehlgeschlagen.',
-      })
+      setLabErrorMessage(message)
+      recordError({ chainId, batchId, step: 'labAnalysis', actor: 'lab', message })
     }
   }
 
@@ -603,24 +652,9 @@ export function BatchDocuments({
     query: { enabled: Boolean(actorRegistry) },
   })
   const [beekeeperCertCid] = certificationData ?? ['']
-  const { data: originCid } = useReadQualityIndexOriginCid({
-    address: qualityIndex,
-    args: batchId !== undefined ? [batchId] : undefined,
-    query: { enabled: Boolean(qualityIndex && batchId !== undefined) },
-  })
 
   return (
     <>
-      <p>
-        Herkunftsangabe:{' '}
-        {originCid ? (
-          <a href={IPFS_GATEWAY + originCid} target="_blank" rel="noreferrer">
-            ansehen
-          </a>
-        ) : (
-          'noch nicht eingetragen'
-        )}
-      </p>
       <p>
         Laboranalyse:{' '}
         {labReportHistory.length > 0 ? (
@@ -653,7 +687,7 @@ export function BatchDocuments({
           </>
         )}
       </p>
-      {labStatus === 'error' && <p>Laboranalyse anfordern fehlgeschlagen.</p>}
+      {labStatus === 'error' && <p>{labErrorMessage || 'Laboranalyse anfordern fehlgeschlagen.'}</p>}
       <p>
         Prämierungsurkunde:{' '}
         {awardCertificateCid ? (
