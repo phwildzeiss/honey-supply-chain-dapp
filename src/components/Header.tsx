@@ -21,8 +21,9 @@ function Header() {
   const [resetStatus, setResetStatus] = useState<'idle' | 'loading' | 'error'>('idle')
 
   async function handleScenarioChange(id: ScenarioId) {
+    const certificationUnchanged = SCENARIOS[scenarioId].force.certification === SCENARIOS[id].force.certification
     setActiveScenarioId(id)
-    if (!address) return
+    if (!address || certificationUnchanged) return
     setResetStatus('loading')
     try {
       await requestCertification(address, 'NONE', 'NONE')
@@ -40,7 +41,7 @@ function Header() {
       <select
         value={scenarioId}
         onChange={(e) => void handleScenarioChange(e.target.value as ScenarioId)}
-        title="Szenario für Force-Vorgaben bei Labor/Prämierung/Sensoren — setzt die Zertifizierung des Imker-Kontos zurück"
+        title="Szenario für Force-Vorgaben bei Labor/Prämierung/Sensoren — setzt die Zertifizierung des Imker-Kontos zurück, falls sich die geforderte Zertifizierung ändert"
       >
         {Object.entries(SCENARIOS).map(([id, scenario]) => (
           <option key={id} value={id}>{scenario.label}</option>
