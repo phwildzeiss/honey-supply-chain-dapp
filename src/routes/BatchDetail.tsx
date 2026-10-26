@@ -144,8 +144,6 @@ function BatchDetail() {
 
   const [batch, holder] = batchData
   const [si, phqi, mci, qi, state, reason] = qualityData
-  // Contract-Skala ist 0-10000 (SCALE in QualityIndex.sol); die Arbeit stellt SI/PHQI/MCI/QI
-  // durchgehend als Dezimalwert 0-1 dar (z.B. Tabelle 5.7: 0,836), nicht als Ganzzahl oder Prozent.
   const siFraction = Number(si) / 10000
   const phqiFraction = Number(phqi) / 10000
   const mciFraction = Number(mci) / 10000
@@ -159,6 +157,7 @@ function BatchDetail() {
     state === 1 ? 'Erst wieder möglich, sobald die Laboranalyse nach der Temperaturverletzung bestätigt wurde.'
       : state === 2 ? 'Nicht möglich: Die Charge ist dauerhaft nicht verkäuflich.'
       : null
+  const retailBlockReason = blockReason ?? (!processed ? 'Erst möglich, sobald die Charge abgefüllt wurde.' : null)
 
   return (
     <div>
@@ -230,9 +229,9 @@ function BatchDetail() {
             )}
           </p>
           {canConfirmRetailReceipt && (
-            blockReason ? (
+            retailBlockReason ? (
               <p>
-                <span className="tile-disabled" title={blockReason}>
+                <span className="tile-disabled" title={retailBlockReason}>
                   Wareneingang bestätigen
                 </span>
               </p>
@@ -547,6 +546,8 @@ export function BatchDocuments({
 
   const [lastReportData, setLastReportData] = useState<LabReportData>()
   const [labReportHistory, setLabReportHistory] = useState<string[]>([])
+  const [labHistoryStatus, setLabHistoryStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+  const isFetchingHistoryRef = useRef(false)
 
   useEffect(() => {
     if (batchId === undefined) return
@@ -561,20 +562,59 @@ export function BatchDocuments({
 
   async function refetchLabReportHistory() {
     if (!publicClient || !qualityIndex || batchId === undefined) return
-    const logs = await publicClient.getContractEvents({
-      address: qualityIndex,
-      abi: qualityIndexAbi,
-      eventName: 'PHQIDataSubmitted',
-      args: { batchId },
-      fromBlock: 0n,
-      toBlock: 'latest',
-    })
-    setLabReportHistory(logs.map((log) => log.args.ipfsCid).filter((cid): cid is string => Boolean(cid)))
+    // Verhindert, dass zwei gleichzeitige Aufrufe (z.B. React StrictMode fuehrt Effekte im Dev-Modus
+    // zweimal aus) parallel denselben Block-Bereich abfragen und das Rate-Limit zusaetzlich belasten.
+    if (isFetchingHistoryRef.current) return
+    isFetchingHistoryRef.current = true
+    setLabHistoryStatus('loading')
+    try {
+      const fromBlock = addresses[chainId as keyof typeof addresses]?.deployedAtBlock ?? 0n
+      const latest = await publicClient.getBlockNumber()
+      const logs: { args: { ipfsCid?: string } }[] = []
+      // Bestaetigt per Fehlermeldung: Alchemy Free Tier erlaubt genau 10 Bloecke pro eth_getLogs-
+      // Anfrage ("you can make eth_getLogs requests with up to a 10 block range"). Direkt damit
+      // starten statt erst groessere Fenster zu versuchen und zu verkleinern - jeder Versuch mit mehr
+      // als 10 Bloecken schlaegt bei diesem Anbieter ohnehin garantiert fehl. Zwischen den Anfragen
+      // eine kurze Pause, um das Rate-Limit (separat vom Bereichs-Limit) nicht erneut auszuloesen.
+      const CHUNK_SIZE = 10n;
+      let from = fromBlock
+      while (from <= latest) {
+        const to = from + CHUNK_SIZE - 1n > latest ? latest : from + CHUNK_SIZE - 1n
+        let attempt = 0
+        for (;;) {
+          try {
+            const chunk = await publicClient.getContractEvents({
+              address: qualityIndex,
+              abi: qualityIndexAbi,
+              eventName: 'PHQIDataSubmitted',
+              args: { batchId },
+              fromBlock: from,
+              toBlock: to,
+            })
+            logs.push(...chunk)
+            break
+          } catch {
+            attempt += 1
+            if (attempt > 5) throw new Error('Laborbericht-Historie konnte nicht geladen werden (RPC-Anbieter dauerhaft nicht erreichbar).')
+            await new Promise((resolve) => setTimeout(resolve, 1000 * attempt))
+          }
+        }
+        from = to + 1n
+        if (from <= latest) await new Promise((resolve) => setTimeout(resolve, 250))
+      }
+      setLabReportHistory(logs.map((log) => log.args.ipfsCid).filter((cid): cid is string => Boolean(cid)))
+      setLabHistoryStatus('idle')
+    } catch (err) {
+      setLabHistoryStatus('error')
+      recordError({
+        chainId, batchId, step: 'labAnalysis', actor: 'lab',
+        message: err instanceof Error ? err.message : 'Laborbericht-Historie konnte nicht geladen werden.',
+      })
+    } finally {
+      isFetchingHistoryRef.current = false
+    }
   }
 
-  useEffect(() => {
-    void refetchLabReportHistory()
-  }, [publicClient, qualityIndex, batchId])
   const { data: awardCertificateCid, refetch: refetchAwardCertificateCid } = useReadQualityIndexAwardCertificateCid({
     address: qualityIndex,
     args: batchId !== undefined ? [batchId] : undefined,
@@ -606,7 +646,10 @@ export function BatchDocuments({
       setLastReportData(result.reportData)
       saveLastReportData(batchId, result.reportData)
       await refetchLabReportCid()
-      await refetchLabReportHistory()
+      // Lokal anhaengen statt die On-Chain-Historie neu abzufragen (eth_getLogs ist bei manchen
+      // RPC-Anbietern, z.B. Alchemy Free Tier, auf wenige Bloecke pro Anfrage begrenzt - siehe
+      // refetchLabReportHistory). Die gerade abgeschlossene Analyse kennen wir bereits direkt.
+      if (result.ipfsCid) setLabReportHistory((prev) => [...prev, result.ipfsCid])
       onQualityChanged()
       void recordStep({
         chainId, batchId, step: 'labAnalysis', actor: 'lab',
@@ -666,9 +709,20 @@ export function BatchDocuments({
               </a>
             </span>
           ))
+        ) : labReportCid ? (
+          <a href={IPFS_GATEWAY + labReportCid} target="_blank" rel="noreferrer">ansehen</a>
         ) : (
           'noch nicht vorhanden'
         )}
+        {labReportCid && (
+          <>
+            {' '}
+            <button type="button" onClick={() => void refetchLabReportHistory()} disabled={labHistoryStatus === 'loading'}>
+              {labHistoryStatus === 'loading' ? 'Verlauf wird geladen...' : 'vollständigen Verlauf laden'}
+            </button>
+          </>
+        )}
+        {labHistoryStatus === 'error' && ' (Verlauf konnte nicht geladen werden)'}
         {canRequestLab && (!labReportCid || state === 1) && (
           <>
             {' '}
