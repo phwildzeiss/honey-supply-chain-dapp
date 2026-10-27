@@ -1,6 +1,6 @@
 import { useState, type SubmitEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { useChainId, useConnection } from 'wagmi'
+import { useChainId, useConnection, usePublicClient } from 'wagmi'
 import { useReadActorRegistryCertifications } from '../generated'
 import { addresses } from '../addresses'
 import { requestCertification } from '../simulator'
@@ -25,6 +25,7 @@ const IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs/'
 function SubmitCertification() {
   const chainId = useChainId()
   const { address } = useConnection()
+  const publicClient = usePublicClient()
   const actorRegistry = addresses[chainId as keyof typeof addresses]?.ActorRegistry
   const [requested, setRequested] = useState(OPTIONS[0].value)
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
@@ -52,9 +53,13 @@ function SubmitCertification() {
       const response = await requestCertification(address, requested, force)
       setResult(response.certification)
       await refetchCertification()
+      const receipt = publicClient
+        ? await publicClient.getTransactionReceipt({ hash: response.transactionHash as `0x${string}` })
+        : undefined
       void recordStep({
         chainId, batchId: undefined, step: 'certification', actor: 'certBody',
-        txHash: response.transactionHash, gasUsed: BigInt(response.gasUsed),
+        txHash: response.transactionHash, gasUsed: receipt?.gasUsed ?? BigInt(response.gasUsed),
+        gasPriceWei: receipt?.effectiveGasPrice,
         durationMs: response.timings.renderMs + response.timings.uploadMs + response.timings.chainMs,
         timings: response.timings, note: response.ipfsCid ? `cid=${response.ipfsCid}` : '',
       })

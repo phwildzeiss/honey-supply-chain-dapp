@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useChainId, useConnection, usePublicClient, useWaitForTransactionReceipt } from 'wagmi'
+import { useChainId, useConnection, usePublicClient } from 'wagmi'
 import {
   useReadProductGatewayGetBatchData,
   useReadProductGatewayGetPrice,
@@ -78,46 +78,42 @@ function BatchDetail() {
     query: { enabled: Boolean(supplyChain && id !== undefined) },
   })
   const confirmRetailReceipt = useWriteSupplyChainRecordRetailReceipt()
-  const retailReceiptTxReceipt = useWaitForTransactionReceipt({ hash: confirmRetailReceipt.data })
   const retailReceiptTiming = useTxTiming(confirmRetailReceipt.data)
-  const retailReceiptErrorRecorded = useRef(false)
-
-  useEffect(() => {
-    if (confirmRetailReceipt.isError && !retailReceiptErrorRecorded.current) {
-      retailReceiptErrorRecorded.current = true
-      recordError({
-        chainId, batchId: id, step: 'recordRetailReceipt', actor: 'retailer', address,
-        message: errorMessage(confirmRetailReceipt.error),
-      })
-    }
-  }, [confirmRetailReceipt.isError])
-
-  useEffect(() => {
-    if (!retailReceiptTxReceipt.isSuccess || !retailReceiptTxReceipt.data) return
-    refetchRetailReceiptTimestamp()
-    if (id === undefined) return
-    if (retailReceiptTxReceipt.data.status === 'reverted') {
-      recordError({
-        chainId, batchId: id, step: 'recordRetailReceipt', actor: 'retailer', address,
-        message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
-      })
-      return
-    }
-    const { walletConfirmMs, miningMs, totalMs } = retailReceiptTiming.split()
-    void recordStep({
-      chainId, batchId: id, step: 'recordRetailReceipt', actor: 'retailer', address,
-      txHash: retailReceiptTxReceipt.data.transactionHash, gasUsed: retailReceiptTxReceipt.data.gasUsed,
-      gasPriceWei: retailReceiptTxReceipt.data.effectiveGasPrice,
-      durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
-    })
-  }, [retailReceiptTxReceipt.isSuccess])
+  const publicClient = usePublicClient()
+  const [retailReceiptStatus, setRetailReceiptStatus] = useState<'idle' | 'loading' | 'error'>('idle')
 
   async function handleConfirmRetailReceipt() {
     if (!id || !supplyChain) return
-    retailReceiptErrorRecorded.current = false
+    setRetailReceiptStatus('loading')
     retailReceiptTiming.markSubmitted()
-    const nonce = await getFreshNonce(address as `0x${string}` | undefined)
-    confirmRetailReceipt.mutate({ address: supplyChain, args: [id], nonce })
+    try {
+      const nonce = await getFreshNonce(address as `0x${string}` | undefined)
+      const hash = await confirmRetailReceipt.mutateAsync({ address: supplyChain, args: [id], nonce })
+      const receipt = publicClient ? await publicClient.waitForTransactionReceipt({ hash }) : undefined
+      refetchRetailReceiptTimestamp()
+      if (receipt?.status === 'reverted') {
+        recordError({
+          chainId, batchId: id, step: 'recordRetailReceipt', actor: 'retailer', address,
+          message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
+        })
+        setRetailReceiptStatus('error')
+        return
+      }
+      const { walletConfirmMs, miningMs, totalMs } = retailReceiptTiming.split()
+      void recordStep({
+        chainId, batchId: id, step: 'recordRetailReceipt', actor: 'retailer', address,
+        txHash: hash, gasUsed: receipt?.gasUsed ?? 0n,
+        gasPriceWei: receipt?.effectiveGasPrice,
+        durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
+      })
+      setRetailReceiptStatus('idle')
+    } catch (err) {
+      setRetailReceiptStatus('error')
+      recordError({
+        chainId, batchId: id, step: 'recordRetailReceipt', actor: 'retailer', address,
+        message: errorMessage(err),
+      })
+    }
   }
 
   const { data: batchData } = useReadProductGatewayGetBatchData({
@@ -236,17 +232,18 @@ function BatchDetail() {
                 </span>
               </p>
             ) : (
-              <p>
-                <button
-                  type="button"
-                  onClick={handleConfirmRetailReceipt}
-                  disabled={confirmRetailReceipt.isPending || retailReceiptTxReceipt.isLoading}
-                >
-                  {confirmRetailReceipt.isPending || retailReceiptTxReceipt.isLoading
-                    ? 'wird bestätigt...'
-                    : 'Wareneingang bestätigen'}
-                </button>
-              </p>
+              <>
+                <p>
+                  <button
+                    type="button"
+                    onClick={handleConfirmRetailReceipt}
+                    disabled={retailReceiptStatus === 'loading'}
+                  >
+                    {retailReceiptStatus === 'loading' ? 'wird bestätigt...' : 'Wareneingang bestätigen'}
+                  </button>
+                </p>
+                {retailReceiptStatus === 'error' && <p>Wareneingang bestätigen fehlgeschlagen.</p>}
+              </>
             )
           )}
           {isCurrentHolder && (
@@ -281,16 +278,14 @@ function HandlingActions({
 }) {
   const chainId = useChainId()
   const { address } = useConnection()
+  const publicClient = usePublicClient()
   const roles = useMyRoles()
   const { isDev, scenario } = useActiveScenario()
   const recordTransport = useWriteSupplyChainRecordTransportData()
-  const transportReceipt = useWaitForTransactionReceipt({ hash: recordTransport.data })
   const transportTiming = useTxTiming(recordTransport.data)
   const recordWarehouse = useWriteSupplyChainRecordWarehouseData()
-  const warehouseReceipt = useWaitForTransactionReceipt({ hash: recordWarehouse.data })
   const warehouseTiming = useTxTiming(recordWarehouse.data)
   const recordDefrost = useWriteSupplyChainRecordWarehouseData()
-  const defrostReceipt = useWaitForTransactionReceipt({ hash: recordDefrost.data })
   const defrostTiming = useTxTiming(recordDefrost.data)
 
   const [transportStatus, setTransportStatus] = useState<'idle' | 'loading' | 'error'>('idle')
@@ -302,92 +297,6 @@ function HandlingActions({
   const [defrostStatus, setDefrostStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [defrostResult, setDefrostResult] = useState<SensorReading | null>(null)
   const [defrostForce, setDefrostForce] = useState<SensorForce | ''>('')
-  const transportErrorRecorded = useRef(false)
-  const warehouseErrorRecorded = useRef(false)
-  const defrostErrorRecorded = useRef(false)
-
-  useEffect(() => {
-    if (recordTransport.isError && !transportErrorRecorded.current) {
-      transportErrorRecorded.current = true
-      recordError({
-        chainId, batchId, step: 'recordTransportData', actor: roleLabel(roles), address,
-        message: errorMessage(recordTransport.error),
-      })
-    }
-  }, [recordTransport.isError])
-  useEffect(() => {
-    if (recordWarehouse.isError && !warehouseErrorRecorded.current) {
-      warehouseErrorRecorded.current = true
-      recordError({
-        chainId, batchId, step: 'recordWarehouseData(lager)', actor: roleLabel(roles), address,
-        message: errorMessage(recordWarehouse.error),
-      })
-    }
-  }, [recordWarehouse.isError])
-  useEffect(() => {
-    if (recordDefrost.isError && !defrostErrorRecorded.current) {
-      defrostErrorRecorded.current = true
-      recordError({
-        chainId, batchId, step: 'recordWarehouseData(defrost)', actor: roleLabel(roles), address,
-        message: errorMessage(recordDefrost.error),
-      })
-    }
-  }, [recordDefrost.isError])
-
-  useEffect(() => {
-    if (!transportReceipt.isSuccess || !transportReceipt.data || batchId === undefined) return
-    onReported()
-    if (transportReceipt.data.status === 'reverted') {
-      recordError({
-        chainId, batchId, step: 'recordTransportData', actor: roleLabel(roles), address,
-        message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
-      })
-      return
-    }
-    const { walletConfirmMs, miningMs, totalMs } = transportTiming.split()
-    void recordStep({
-      chainId, batchId, step: 'recordTransportData', actor: roleLabel(roles), address,
-      txHash: transportReceipt.data.transactionHash, gasUsed: transportReceipt.data.gasUsed,
-      gasPriceWei: transportReceipt.data.effectiveGasPrice,
-      durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
-    })
-  }, [transportReceipt.isSuccess])
-  useEffect(() => {
-    if (!warehouseReceipt.isSuccess || !warehouseReceipt.data || batchId === undefined) return
-    onReported()
-    if (warehouseReceipt.data.status === 'reverted') {
-      recordError({
-        chainId, batchId, step: 'recordWarehouseData(lager)', actor: roleLabel(roles), address,
-        message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
-      })
-      return
-    }
-    const { walletConfirmMs, miningMs, totalMs } = warehouseTiming.split()
-    void recordStep({
-      chainId, batchId, step: 'recordWarehouseData(lager)', actor: roleLabel(roles), address,
-      txHash: warehouseReceipt.data.transactionHash, gasUsed: warehouseReceipt.data.gasUsed,
-      gasPriceWei: warehouseReceipt.data.effectiveGasPrice,
-      durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
-    })
-  }, [warehouseReceipt.isSuccess])
-  useEffect(() => {
-    if (!defrostReceipt.isSuccess || !defrostReceipt.data || batchId === undefined) return
-    onReported()
-    if (defrostReceipt.data.status === 'reverted') {
-      recordError({
-        chainId, batchId, step: 'recordWarehouseData(defrost)', actor: roleLabel(roles), address,
-        message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
-      })
-      return
-    }
-    const { walletConfirmMs, miningMs, totalMs } = defrostTiming.split()
-    void recordStep({
-      chainId, batchId, step: 'recordWarehouseData(defrost)', actor: roleLabel(roles), address,
-      txHash: defrostReceipt.data.transactionHash, gasUsed: defrostReceipt.data.gasUsed,
-      gasPriceWei: defrostReceipt.data.effectiveGasPrice,
-      durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
-    })
-  }, [defrostReceipt.isSuccess])
 
   async function handleTransport() {
     if (batchId === undefined || !supplyChain) return
@@ -395,20 +304,36 @@ function HandlingActions({
     try {
       const reading = await fetchSensorReading('transport', isDev ? (transportForce || undefined) : scenario.force.transport)
       setTransportResult(reading)
-      transportErrorRecorded.current = false
       transportTiming.markSubmitted()
       const nonce = await getFreshNonce(address as `0x${string}` | undefined)
-      recordTransport.mutate({
+      const hash = await recordTransport.mutateAsync({
         address: supplyChain,
         args: [batchId, BigInt(reading.temperatureCelsius), BigInt(reading.durationMinutes)],
         nonce,
+      })
+      const receipt = publicClient ? await publicClient.waitForTransactionReceipt({ hash }) : undefined
+      onReported()
+      if (receipt?.status === 'reverted') {
+        recordError({
+          chainId, batchId, step: 'recordTransportData', actor: roleLabel(roles), address,
+          message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
+        })
+        setTransportStatus('error')
+        return
+      }
+      const { walletConfirmMs, miningMs, totalMs } = transportTiming.split()
+      void recordStep({
+        chainId, batchId, step: 'recordTransportData', actor: roleLabel(roles), address,
+        txHash: hash, gasUsed: receipt?.gasUsed ?? 0n,
+        gasPriceWei: receipt?.effectiveGasPrice,
+        durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
       })
       setTransportStatus('idle')
     } catch (err) {
       setTransportStatus('error')
       recordError({
         chainId, batchId, step: 'recordTransportData', actor: roleLabel(roles), address,
-        message: err instanceof Error ? err.message : 'Sensordaten-Anfrage fehlgeschlagen.',
+        message: errorMessage(err),
       })
     }
   }
@@ -419,20 +344,36 @@ function HandlingActions({
     try {
       const reading = await fetchSensorReading('warehouse', isDev ? (warehouseForce || undefined) : scenario.force.warehouse)
       setWarehouseResult(reading)
-      warehouseErrorRecorded.current = false
       warehouseTiming.markSubmitted()
       const nonce = await getFreshNonce(address as `0x${string}` | undefined)
-      recordWarehouse.mutate({
+      const hash = await recordWarehouse.mutateAsync({
         address: supplyChain,
         args: [batchId, BigInt(reading.temperatureCelsius), BigInt(reading.durationMinutes)],
         nonce,
+      })
+      const receipt = publicClient ? await publicClient.waitForTransactionReceipt({ hash }) : undefined
+      onReported()
+      if (receipt?.status === 'reverted') {
+        recordError({
+          chainId, batchId, step: 'recordWarehouseData(lager)', actor: roleLabel(roles), address,
+          message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
+        })
+        setWarehouseStatus('error')
+        return
+      }
+      const { walletConfirmMs, miningMs, totalMs } = warehouseTiming.split()
+      void recordStep({
+        chainId, batchId, step: 'recordWarehouseData(lager)', actor: roleLabel(roles), address,
+        txHash: hash, gasUsed: receipt?.gasUsed ?? 0n,
+        gasPriceWei: receipt?.effectiveGasPrice,
+        durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
       })
       setWarehouseStatus('idle')
     } catch (err) {
       setWarehouseStatus('error')
       recordError({
         chainId, batchId, step: 'recordWarehouseData(lager)', actor: roleLabel(roles), address,
-        message: err instanceof Error ? err.message : 'Sensordaten-Anfrage fehlgeschlagen.',
+        message: errorMessage(err),
       })
     }
   }
@@ -443,20 +384,36 @@ function HandlingActions({
     try {
       const reading = await fetchSensorReading('defrost', isDev ? (defrostForce || undefined) : scenario.force.defrost)
       setDefrostResult(reading)
-      defrostErrorRecorded.current = false
       defrostTiming.markSubmitted()
       const nonce = await getFreshNonce(address as `0x${string}` | undefined)
-      recordDefrost.mutate({
+      const hash = await recordDefrost.mutateAsync({
         address: supplyChain,
         args: [batchId, BigInt(reading.temperatureCelsius), BigInt(reading.durationMinutes)],
         nonce,
+      })
+      const receipt = publicClient ? await publicClient.waitForTransactionReceipt({ hash }) : undefined
+      onReported()
+      if (receipt?.status === 'reverted') {
+        recordError({
+          chainId, batchId, step: 'recordWarehouseData(defrost)', actor: roleLabel(roles), address,
+          message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
+        })
+        setDefrostStatus('error')
+        return
+      }
+      const { walletConfirmMs, miningMs, totalMs } = defrostTiming.split()
+      void recordStep({
+        chainId, batchId, step: 'recordWarehouseData(defrost)', actor: roleLabel(roles), address,
+        txHash: hash, gasUsed: receipt?.gasUsed ?? 0n,
+        gasPriceWei: receipt?.effectiveGasPrice,
+        durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
       })
       setDefrostStatus('idle')
     } catch (err) {
       setDefrostStatus('error')
       recordError({
         chainId, batchId, step: 'recordWarehouseData(defrost)', actor: roleLabel(roles), address,
-        message: err instanceof Error ? err.message : 'Sensordaten-Anfrage fehlgeschlagen.',
+        message: errorMessage(err),
       })
     }
   }
@@ -562,8 +519,6 @@ export function BatchDocuments({
 
   async function refetchLabReportHistory() {
     if (!publicClient || !qualityIndex || batchId === undefined) return
-    // Verhindert, dass zwei gleichzeitige Aufrufe (z.B. React StrictMode fuehrt Effekte im Dev-Modus
-    // zweimal aus) parallel denselben Block-Bereich abfragen und das Rate-Limit zusaetzlich belasten.
     if (isFetchingHistoryRef.current) return
     isFetchingHistoryRef.current = true
     setLabHistoryStatus('loading')
@@ -571,11 +526,6 @@ export function BatchDocuments({
       const fromBlock = addresses[chainId as keyof typeof addresses]?.deployedAtBlock ?? 0n
       const latest = await publicClient.getBlockNumber()
       const logs: { args: { ipfsCid?: string } }[] = []
-      // Bestaetigt per Fehlermeldung: Alchemy Free Tier erlaubt genau 10 Bloecke pro eth_getLogs-
-      // Anfrage ("you can make eth_getLogs requests with up to a 10 block range"). Direkt damit
-      // starten statt erst groessere Fenster zu versuchen und zu verkleinern - jeder Versuch mit mehr
-      // als 10 Bloecken schlaegt bei diesem Anbieter ohnehin garantiert fehl. Zwischen den Anfragen
-      // eine kurze Pause, um das Rate-Limit (separat vom Bereichs-Limit) nicht erneut auszuloesen.
       const CHUNK_SIZE = 10n;
       let from = fromBlock
       while (from <= latest) {
@@ -623,10 +573,6 @@ export function BatchDocuments({
 
   async function handleRequestLab() {
     if (batchId === undefined) return
-    // state === 1 (RetestRequired) bedeutet immer, dass hier ein Nachtest noetig ist - nicht erst,
-    // wenn zufaellig noch ein Befund im Speicher ist. Fehlt der vorherige Befund (z. B. anderes
-    // Geraet/Browser, sessionStorage geleert), lieber klar abbrechen statt stillschweigend neu zu
-    // wuerfeln (das saehe im Case-Study-Modus wie ein unveraenderter Wiederholungsbefund aus).
     const isRetest = state === 1
     if (isRetest && !lastReportData) {
       const message = 'Nachtest nicht möglich: Der vorherige Laborbefund wurde in dieser Sitzung nicht gefunden (z. B. anderes Gerät/Browser oder Sitzungsdaten gelöscht).'
@@ -646,14 +592,15 @@ export function BatchDocuments({
       setLastReportData(result.reportData)
       saveLastReportData(batchId, result.reportData)
       await refetchLabReportCid()
-      // Lokal anhaengen statt die On-Chain-Historie neu abzufragen (eth_getLogs ist bei manchen
-      // RPC-Anbietern, z.B. Alchemy Free Tier, auf wenige Bloecke pro Anfrage begrenzt - siehe
-      // refetchLabReportHistory). Die gerade abgeschlossene Analyse kennen wir bereits direkt.
       if (result.ipfsCid) setLabReportHistory((prev) => [...prev, result.ipfsCid])
       onQualityChanged()
+      const receipt = publicClient
+        ? await publicClient.getTransactionReceipt({ hash: result.transactionHash as `0x${string}` })
+        : undefined
       void recordStep({
         chainId, batchId, step: 'labAnalysis', actor: 'lab',
-        txHash: result.transactionHash, gasUsed: BigInt(result.gasUsed),
+        txHash: result.transactionHash, gasUsed: receipt?.gasUsed ?? BigInt(result.gasUsed),
+        gasPriceWei: receipt?.effectiveGasPrice,
         durationMs: result.timings.renderMs + result.timings.uploadMs + result.timings.chainMs,
         timings: result.timings, note: result.ipfsCid ? `cid=${result.ipfsCid}` : '',
       })
@@ -674,9 +621,13 @@ export function BatchDocuments({
       await refetchAwardCertificateCid()
       markRequested(Number(batchId))
       onQualityChanged()
+      const receipt = publicClient
+        ? await publicClient.getTransactionReceipt({ hash: result.transactionHash as `0x${string}` })
+        : undefined
       void recordStep({
         chainId, batchId, step: 'award', actor: 'awardBody',
-        txHash: result.transactionHash, gasUsed: BigInt(result.gasUsed),
+        txHash: result.transactionHash, gasUsed: receipt?.gasUsed ?? BigInt(result.gasUsed),
+        gasPriceWei: receipt?.effectiveGasPrice,
         durationMs: result.timings.renderMs + result.timings.uploadMs + result.timings.chainMs,
         timings: result.timings, note: result.ipfsCid ? `cid=${result.ipfsCid}` : '',
       })
